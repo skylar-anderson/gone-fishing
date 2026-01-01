@@ -2,9 +2,11 @@
 
 import { useEffect } from 'react';
 import { useGameStore, Toast as ToastType } from '@/store/gameStore';
+import { useButtonSound } from '@/lib/hooks/useButtonSound';
 
 function ToastItem({ toast }: { toast: ToastType }) {
   const removeToast = useGameStore((state) => state.removeToast);
+  const withSound = useButtonSound();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -26,7 +28,7 @@ function ToastItem({ toast }: { toast: ToastType }) {
     >
       <span className="text-sm font-medium">{toast.message}</span>
       <button
-        onClick={() => removeToast(toast.id)}
+        onClick={withSound(() => removeToast(toast.id))}
         className="text-white/80 hover:text-white ml-auto"
       >
         ×

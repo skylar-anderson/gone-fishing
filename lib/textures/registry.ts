@@ -40,6 +40,20 @@ export function loadTextures(): TileTextures {
 }
 
 /**
+ * Saves textures to data/textures.json
+ */
+export function saveTextures(textures: TileTextures): void {
+  const data: TextureExport = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    tileTextures: textures,
+  };
+
+  fs.writeFileSync(TEXTURES_FILE, JSON.stringify(data, null, 2));
+  _cachedTextures = textures;
+}
+
+/**
  * Clears the texture cache (useful for hot reloading)
  */
 export function clearTextureCache(): void {

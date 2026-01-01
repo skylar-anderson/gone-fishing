@@ -1,12 +1,19 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { TileMap } from './TileMap';
-import { Player } from './Player';
+import { InterpolatedPlayer } from './InterpolatedPlayer';
 import { useTextures } from '@/lib/hooks/useTextures';
 
 export function GameCanvas() {
-  const { scene, playerName, position, direction, isFishing, otherPlayers } = useGameStore();
+  // Use individual selectors to prevent unnecessary re-renders
+  const scene = useGameStore((state) => state.scene);
+  const playerName = useGameStore((state) => state.playerName);
+  const position = useGameStore((state) => state.position);
+  const direction = useGameStore((state) => state.direction);
+  const isFishing = useGameStore((state) => state.isFishing);
+  const otherPlayers = useGameStore((state) => state.otherPlayers);
   const { textures } = useTextures();
 
   if (!scene || !playerName) {
@@ -21,20 +28,26 @@ export function GameCanvas() {
   const viewportWidth = map.width * map.tileSize;
   const viewportHeight = map.height * map.tileSize;
 
+  // Memoize the other players array to avoid recreating on every render
+  const otherPlayersList = useMemo(
+    () => Array.from(otherPlayers.values()),
+    [otherPlayers]
+  );
+
   return (
-    <div className="relative">
+    <div className="relative w-full h-full flex items-center justify-center">
       <svg
-        width={viewportWidth}
-        height={viewportHeight}
-        className="border-2 border-gray-700 rounded-lg shadow-lg"
+        viewBox={`0 0 ${viewportWidth} ${viewportHeight}`}
+        preserveAspectRatio="xMidYMid meet"
+        className="border-2 border-gray-700 rounded-lg shadow-lg w-full h-full max-w-full max-h-full"
         style={{ background: '#1a1a2e' }}
       >
         {/* Render tile map */}
         <TileMap map={map} textures={textures} />
 
-        {/* Render other players */}
-        {Array.from(otherPlayers.values()).map((player) => (
-          <Player
+        {/* Render other players with interpolation */}
+        {otherPlayersList.map((player) => (
+          <InterpolatedPlayer
             key={player.name}
             name={player.name}
             position={player.position}
@@ -45,8 +58,8 @@ export function GameCanvas() {
           />
         ))}
 
-        {/* Render local player */}
-        <Player
+        {/* Render local player with interpolation */}
+        <InterpolatedPlayer
           name={playerName}
           position={position}
           direction={direction}

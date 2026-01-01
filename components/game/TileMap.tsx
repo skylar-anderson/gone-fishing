@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { TileMap as TileMapType } from '@/lib/types';
 import type { TileTextures } from '@/lib/types/textures';
 import { createAllDefaultTextures } from '@/lib/textures/defaults';
@@ -19,7 +20,7 @@ function getDefaultTextures(): TileTextures {
   return defaultTextures;
 }
 
-export function TileMap({ map, textures }: TileMapProps) {
+export const TileMap = memo(function TileMap({ map, textures }: TileMapProps) {
   const activeTextures = textures ?? getDefaultTextures();
 
   return (
@@ -39,4 +40,4 @@ export function TileMap({ map, textures }: TileMapProps) {
       )}
     </g>
   );
-}
+});

@@ -4,24 +4,21 @@ import { useCallback } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { useWebSocket } from '@/lib/hooks/useWebSocket';
 import { useKeyboard } from '@/lib/hooks/useKeyboard';
+import { useWalkingSound } from '@/lib/hooks/useWalkingSound';
 import { LoginForm } from '@/components/ui/LoginForm';
 import { GameCanvas } from '@/components/game/GameCanvas';
-import { Inventory } from '@/components/ui/Inventory';
-import { SceneSelector } from '@/components/ui/SceneSelector';
-import { PlayerList } from '@/components/ui/PlayerList';
+import { GameHeader } from '@/components/ui/GameHeader';
 import { CatchModal } from '@/components/ui/CatchModal';
 import { ShopModal } from '@/components/ui/ShopModal';
 import { ToastContainer } from '@/components/ui/Toast';
 import { SceneId } from '@/lib/types';
-import { getPole } from '@/data/poles';
 
 export default function Home() {
-  const { connected, connecting, playerName, scene, money, poleLevel } = useGameStore();
-  const { connect, sendMessage } = useWebSocket();
-  const currentPole = getPole(poleLevel);
+  const { connected, connecting, playerName, reset } = useGameStore();
+  const { connect, sendMessage, disconnect } = useWebSocket();
 
-  // Handle keyboard input for movement
   useKeyboard({ sendMessage });
+  useWalkingSound();
 
   const handleJoin = useCallback(
     (name: string, selectedScene: SceneId) => {
@@ -30,97 +27,46 @@ export default function Home() {
     [connect]
   );
 
-  // Show login form if not connected
+  const handleLogout = useCallback(() => {
+    disconnect();
+    reset();
+  }, [disconnect, reset]);
+
   if (!connected || !playerName) {
     return <LoginForm onJoin={handleJoin} isConnecting={connecting} />;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 p-4">
-      {/* Header */}
-      <header className="max-w-6xl mx-auto mb-4">
-        <div className="flex justify-between items-center bg-gray-800 rounded-lg p-4 shadow-lg">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-white">🎣 Fishing Game</h1>
-            <span className="text-gray-400">|</span>
-            <span className="text-blue-400 font-medium">{playerName}</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-purple-400 font-medium" title={currentPole.description}>
-              {currentPole.emoji} {currentPole.name}
-            </div>
-            <span className="text-gray-600">|</span>
-            <div className="text-yellow-400 font-bold text-lg">${money}</div>
-            {scene && (
-              <div className="text-gray-400">
-                📍 {scene.name}
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+    <div className="h-screen bg-gradient-to-b from-gray-900 to-gray-800 flex flex-col overflow-hidden">
+      <GameHeader sendMessage={sendMessage} onLogout={handleLogout} />
 
-      {/* Main content */}
-      <main className="max-w-6xl mx-auto">
-        <div className="flex gap-4 flex-col lg:flex-row">
-          {/* Left sidebar */}
-          <div className="lg:w-72 flex flex-col gap-4">
-            <SceneSelector sendMessage={sendMessage} />
-            <PlayerList />
-          </div>
-
-          {/* Game canvas */}
-          <div className="flex-1 flex justify-center">
-            <GameCanvas />
-          </div>
-
-          {/* Right sidebar - Inventory */}
-          <div className="lg:w-72">
-            <Inventory sendMessage={sendMessage} />
-          </div>
-        </div>
+      <main className="flex-1 relative overflow-hidden p-4">
+        <GameCanvas />
       </main>
 
-      {/* Catch modal */}
       <CatchModal sendMessage={sendMessage} />
-
-      {/* Shop modal */}
       <ShopModal sendMessage={sendMessage} />
-
-      {/* Toast notifications */}
       <ToastContainer />
 
-      {/* CSS for animations */}
       <style jsx global>{`
         @keyframes bounce-in {
-          0% {
-            transform: scale(0.5);
-            opacity: 0;
-          }
-          60% {
-            transform: scale(1.1);
-          }
-          100% {
-            transform: scale(1);
-            opacity: 1;
-          }
+          0% { transform: scale(0.5); opacity: 0; }
+          60% { transform: scale(1.1); }
+          100% { transform: scale(1); opacity: 1; }
         }
-        .animate-bounce-in {
-          animation: bounce-in 0.3s ease-out;
-        }
+        .animate-bounce-in { animation: bounce-in 0.3s ease-out; }
+
         @keyframes slide-in {
-          0% {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          100% {
-            transform: translateX(0);
-            opacity: 1;
-          }
+          0% { transform: translateX(100%); opacity: 0; }
+          100% { transform: translateX(0); opacity: 1; }
         }
-        .animate-slide-in {
-          animation: slide-in 0.2s ease-out;
+        .animate-slide-in { animation: slide-in 0.2s ease-out; }
+
+        @keyframes fade-in {
+          0% { opacity: 0; transform: translateY(-8px); }
+          100% { opacity: 1; transform: translateY(0); }
         }
+        .animate-fade-in { animation: fade-in 0.15s ease-out; }
       `}</style>
     </div>
   );

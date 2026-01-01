@@ -4,21 +4,6 @@
       "name": "test",
       "inventory": [
         {
-          "id": "b1b57151-d4f8-4605-839b-cb351405788a",
-          "fishId": "salmon",
-          "fish": {
-            "id": "salmon",
-            "name": "Salmon",
-            "rarity": "uncommon",
-            "catchChance": 20,
-            "value": 50,
-            "emoji": "🐠",
-            "description": "A powerful fish swimming upstream."
-          },
-          "caughtAt": "2026-01-01T00:19:31.595Z",
-          "caughtIn": "river"
-        },
-        {
           "id": "3c793d71-2693-4a6f-9205-1da84ac6cd00",
           "fishId": "perch",
           "fish": {
@@ -62,17 +47,257 @@
           },
           "caughtAt": "2026-01-01T15:44:08.764Z",
           "caughtIn": "pond"
+        },
+        {
+          "id": "24dc2735-2b4c-4241-9b35-e3fbbe06ddda",
+          "fishId": "sardine",
+          "fish": {
+            "id": "sardine",
+            "name": "Sardine",
+            "rarity": "common",
+            "catchChance": 35,
+            "value": 2,
+            "emoji": "🐟",
+            "description": "A tiny, abundant ocean fish."
+          },
+          "caughtAt": "2026-01-01T22:30:37.530Z",
+          "caughtIn": "ocean"
+        },
+        {
+          "id": "834415a5-e6d3-487d-8faa-04b053aa3146",
+          "fishId": "sardine",
+          "fish": {
+            "id": "sardine",
+            "name": "Sardine",
+            "rarity": "common",
+            "catchChance": 35,
+            "value": 2,
+            "emoji": "🐟",
+            "description": "A tiny, abundant ocean fish."
+          },
+          "caughtAt": "2026-01-01T22:30:45.567Z",
+          "caughtIn": "ocean"
+        },
+        {
+          "id": "b1a51625-77f1-429a-a241-33305718c55e",
+          "fishId": "swordfish",
+          "fish": {
+            "id": "swordfish",
+            "name": "Swordfish",
+            "rarity": "rare",
+            "catchChance": 8,
+            "value": 250,
+            "emoji": "⚔️",
+            "description": "A magnificent fish with a sword-like bill."
+          },
+          "caughtAt": "2026-01-01T23:12:29.114Z",
+          "caughtIn": "ocean"
+        },
+        {
+          "id": "f0473f76-2f1f-4377-ad1c-2125b5034be9",
+          "fishId": "mackerel",
+          "fish": {
+            "id": "mackerel",
+            "name": "Mackerel",
+            "rarity": "common",
+            "catchChance": 28,
+            "value": 8,
+            "emoji": "🐠",
+            "description": "A fast-swimming schooling fish."
+          },
+          "caughtAt": "2026-01-01T23:12:45.114Z",
+          "caughtIn": "ocean"
+        },
+        {
+          "id": "6a653e2f-b9d9-41ba-b075-8de083242686",
+          "fishId": "channel_catfish",
+          "fish": {
+            "id": "channel_catfish",
+            "name": "Channel Catfish",
+            "rarity": "uncommon",
+            "catchChance": 12,
+            "value": 35,
+            "emoji": "🐡",
+            "description": "A whiskered bottom-feeder that grows quite large."
+          },
+          "caughtAt": "2026-01-01T23:21:33.844Z",
+          "caughtIn": "pond"
+        },
+        {
+          "id": "51696f39-407b-4130-aec7-dab7855cbc41",
+          "fishId": "golden_koi",
+          "fish": {
+            "id": "golden_koi",
+            "name": "Golden Koi",
+            "rarity": "rare",
+            "catchChance": 4,
+            "value": 150,
+            "emoji": "✨",
+            "description": "A beautiful ornamental fish with golden scales."
+          },
+          "caughtAt": "2026-01-01T23:21:43.827Z",
+          "caughtIn": "pond"
+        },
+        {
+          "id": "410c5f4c-1551-4bf8-896d-b08771ba4d14",
+          "fishId": "sunfish",
+          "fish": {
+            "id": "sunfish",
+            "name": "Sunfish",
+            "rarity": "common",
+            "catchChance": 30,
+            "value": 8,
+            "emoji": "🌞",
+            "description": "A colorful fish that loves sunny shallows."
+          },
+          "caughtAt": "2026-01-01T23:21:51.568Z",
+          "caughtIn": "pond"
+        },
+        {
+          "id": "ad581edb-379f-4ecb-ae14-5b1e7f9bd15a",
+          "fishId": "mackerel",
+          "fish": {
+            "id": "mackerel",
+            "name": "Mackerel",
+            "rarity": "common",
+            "catchChance": 28,
+            "value": 8,
+            "emoji": "🐠",
+            "description": "A fast-swimming schooling fish."
+          },
+          "caughtAt": "2026-01-01T23:22:18.552Z",
+          "caughtIn": "ocean"
+        },
+        {
+          "id": "3dace3d4-8c73-4b91-8e17-4c92812db8c6",
+          "fishId": "largemouth_bass",
+          "fish": {
+            "id": "largemouth_bass",
+            "name": "Largemouth Bass",
+            "rarity": "uncommon",
+            "catchChance": 18,
+            "value": 25,
+            "emoji": "🐠",
+            "description": "A popular game fish known for its large mouth."
+          },
+          "caughtAt": "2026-01-01T23:25:13.384Z",
+          "caughtIn": "pond"
+        },
+        {
+          "id": "cfaec26d-5173-4bde-80c0-a152372cb61c",
+          "fishId": "bluegill",
+          "fish": {
+            "id": "bluegill",
+            "name": "Bluegill",
+            "rarity": "common",
+            "catchChance": 35,
+            "value": 5,
+            "emoji": "🐟",
+            "description": "A small, common pond fish with bluish coloring."
+          },
+          "caughtAt": "2026-01-01T23:25:49.361Z",
+          "caughtIn": "pond"
+        },
+        {
+          "id": "c359576a-93d3-459a-9b68-113b5fa51609",
+          "fishId": "mackerel",
+          "fish": {
+            "id": "mackerel",
+            "name": "Mackerel",
+            "rarity": "common",
+            "catchChance": 28,
+            "value": 8,
+            "emoji": "🐠",
+            "description": "A fast-swimming schooling fish."
+          },
+          "caughtAt": "2026-01-01T23:30:59.872Z",
+          "caughtIn": "ocean"
+        },
+        {
+          "id": "0259e9c0-5073-44d0-8fcc-deddee22781b",
+          "fishId": "largemouth_bass",
+          "fish": {
+            "id": "largemouth_bass",
+            "name": "Largemouth Bass",
+            "rarity": "uncommon",
+            "catchChance": 18,
+            "value": 25,
+            "emoji": "🐠",
+            "description": "A popular game fish known for its large mouth."
+          },
+          "caughtAt": "2026-01-01T23:33:32.082Z",
+          "caughtIn": "pond"
+        },
+        {
+          "id": "daf4f03c-6306-48b6-8f44-f3eba3343fdf",
+          "fishId": "mudfish",
+          "fish": {
+            "id": "mudfish",
+            "name": "Mudfish",
+            "rarity": "common",
+            "catchChance": 40,
+            "value": 3,
+            "emoji": "🐟",
+            "description": "A slimy fish that thrives in murky waters."
+          },
+          "caughtAt": "2026-01-01T23:45:23.711Z",
+          "caughtIn": "swamp"
+        },
+        {
+          "id": "87b487f4-43c9-418f-8892-53d142ce1a3f",
+          "fishId": "channel_catfish",
+          "fish": {
+            "id": "channel_catfish",
+            "name": "Channel Catfish",
+            "rarity": "uncommon",
+            "catchChance": 12,
+            "value": 35,
+            "emoji": "🐡",
+            "description": "A whiskered bottom-feeder that grows quite large."
+          },
+          "caughtAt": "2026-01-01T23:48:54.240Z",
+          "caughtIn": "pond"
+        },
+        {
+          "id": "38851cef-ac01-4f75-a3bd-beb1d4618866",
+          "fishId": "largemouth_bass",
+          "fish": {
+            "id": "largemouth_bass",
+            "name": "Largemouth Bass",
+            "rarity": "uncommon",
+            "catchChance": 18,
+            "value": 25,
+            "emoji": "🐠",
+            "description": "A popular game fish known for its large mouth."
+          },
+          "caughtAt": "2026-01-01T23:49:02.365Z",
+          "caughtIn": "pond"
+        },
+        {
+          "id": "fa61f90e-f088-427b-87cc-2a6a7a1529c3",
+          "fishId": "largemouth_bass",
+          "fish": {
+            "id": "largemouth_bass",
+            "name": "Largemouth Bass",
+            "rarity": "uncommon",
+            "catchChance": 18,
+            "value": 25,
+            "emoji": "🐠",
+            "description": "A popular game fish known for its large mouth."
+          },
+          "caughtAt": "2026-01-01T23:54:31.011Z",
+          "caughtIn": "pond"
         }
       ],
-      "money": 0,
-      "poleLevel": 1,
+      "money": 901,
+      "poleLevel": 2,
       "lastScene": "pond",
       "lastPosition": {
-        "x": 53,
-        "y": 33
+        "x": 43,
+        "y": 42
       },
       "createdAt": "2026-01-01T00:16:35.347Z",
-      "lastLogin": "2026-01-01T15:43:36.790Z"
+      "lastLogin": "2026-01-01T23:54:16.588Z"
     }
   }
 }

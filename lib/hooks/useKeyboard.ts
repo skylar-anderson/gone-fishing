@@ -4,6 +4,7 @@ import { useEffect, useCallback } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { Direction, Position, ClientMessage } from '@/lib/types';
 import { canMoveTo, getNewPosition } from '@/lib/utils/collision';
+import { useSound } from './useSound';
 
 const KEY_TO_DIRECTION: Record<string, Direction> = {
   ArrowUp: 'up',
@@ -26,6 +27,7 @@ interface UseKeyboardOptions {
 
 export function useKeyboard({ sendMessage }: UseKeyboardOptions) {
   const { scene, position, isFishing, shopOpen, setFishing, updatePosition, setShopOpen } = useGameStore();
+  const { play: playSplashSound } = useSound('/sounds/splash.wav');
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -63,6 +65,7 @@ export function useKeyboard({ sendMessage }: UseKeyboardOptions) {
       if (event.key === ' ' || event.key === 'f' || event.key === 'F') {
         event.preventDefault();
         if (!isFishing) {
+          playSplashSound();
           setFishing(true);
           sendMessage({ type: 'START_FISHING', payload: {} });
         }
@@ -94,7 +97,7 @@ export function useKeyboard({ sendMessage }: UseKeyboardOptions) {
         updatePosition(position, direction);
       }
     },
-    [scene, position, isFishing, shopOpen, setFishing, updatePosition, setShopOpen, sendMessage]
+    [scene, position, isFishing, shopOpen, setFishing, updatePosition, setShopOpen, sendMessage, playSplashSound]
   );
 
   useEffect(() => {

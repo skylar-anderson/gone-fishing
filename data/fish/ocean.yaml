@@ -75,7 +75,7 @@ fish:
   - id: el_gran_maja
     name: El Gran Maja
     rarity: legendary
-    catchChance: 0.1
+    catchChance: 0.3
     value: 100000
     emoji: "🐟"
     description: "Terrifying eel-like creature with multiple white eyes and a huge mouth"
@@ -83,7 +83,7 @@ fish:
   - id: the_kraken
     name: The Kraken
     rarity: legendary
-    catchChance: 0.1
+    catchChance: 0.3
     value: 200000
     emoji: "🐙"
     description: "A massive octopus-like creature with multiple arms and a huge mouth"

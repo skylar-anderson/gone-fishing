@@ -7,7 +7,7 @@
   "map": {
     "width": 64,
     "height": 48,
-    "tileSize": 8,
+    "tileSize": 16,
     "legend": {
       "M": { "type": "mud", "walkable": true, "fishable": false },
       "W": { "type": "water", "walkable": false, "fishable": true },

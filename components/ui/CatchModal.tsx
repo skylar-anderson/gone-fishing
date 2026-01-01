@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { Rarity, ClientMessage } from '@/lib/types';
+import { useSound } from '@/lib/hooks/useSound';
 
 const RARITY_COLORS: Record<Rarity, string> = {
   common: 'text-gray-300',
@@ -26,6 +27,15 @@ interface CatchModalProps {
 
 export function CatchModal({ sendMessage }: CatchModalProps) {
   const { lastCatch, showCatchModal, setShowCatchModal, inventory } = useGameStore();
+  const { play: playInventorySound } = useSound('/sounds/inventory.wav');
+  const { play: playCatchSound } = useSound('/sounds/catch.wav');
+
+  // Play catch sound when modal opens with a successful catch
+  useEffect(() => {
+    if (showCatchModal && lastCatch) {
+      playCatchSound();
+    }
+  }, [showCatchModal, lastCatch, playCatchSound]);
 
   // Auto-close after 2 seconds only for failed catches
   useEffect(() => {
@@ -60,6 +70,7 @@ export function CatchModal({ sendMessage }: CatchModalProps) {
     .find((item) => item.fishId === lastCatch.id);
 
   const handleKeep = () => {
+    playInventorySound();
     setShowCatchModal(false);
   };
 

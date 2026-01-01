@@ -31,7 +31,7 @@ export function Inventory({ sendMessage }: InventoryProps) {
   };
 
   return (
-    <div className="bg-gray-800 p-4 rounded-lg w-72 shadow-lg">
+    <div className="bg-gray-800 p-4 rounded-lg shadow-lg">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-white text-lg font-bold">Inventory</h2>
         <div className="text-yellow-400 font-bold">${money}</div>

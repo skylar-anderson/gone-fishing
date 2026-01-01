@@ -1,134 +1,197 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import type { TileType } from '@/lib/types';
+import { useState, useCallback, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { EditorTabs, type EditorTab } from '@/components/editor/EditorTabs';
-import { TextureEditor } from '@/components/editor/TextureEditor';
+import { useSceneStore, TILE_CONFIGS } from '@/store/sceneStore';
+import { useTextureStore } from '@/store/textureStore';
+import { renderAllPatterns, getPatternFill } from '@/lib/textures/patterns';
+import type { TileType } from '@/lib/types';
 
-interface TileConfig {
-  type: TileType;
-  walkable: boolean;
-  fishable: boolean;
-  color: string;
-  label: string;
-  char: string;
+// Dynamic import with SSR disabled to avoid hydration mismatch from localStorage
+const TextureEditor = dynamic(
+  () => import('@/components/editor/TextureEditor').then(mod => ({ default: mod.TextureEditor })),
+  { ssr: false, loading: () => <EditorLoading /> }
+);
+
+function EditorLoading() {
+  return (
+    <div className="flex items-center justify-center h-64">
+      <div className="text-gray-400">Loading editor...</div>
+    </div>
+  );
 }
 
-const TILE_CONFIGS: TileConfig[] = [
-  { type: 'grass', walkable: true, fishable: false, color: '#4ade80', label: 'Grass', char: 'G' },
-  { type: 'dirt', walkable: true, fishable: false, color: '#a16207', label: 'Dirt', char: 'D' },
-  { type: 'sand', walkable: true, fishable: false, color: '#fde047', label: 'Sand', char: 'S' },
-  { type: 'water', walkable: false, fishable: true, color: '#38bdf8', label: 'Water', char: 'W' },
-  { type: 'deep_water', walkable: false, fishable: true, color: '#0369a1', label: 'Deep Water', char: 'X' },
-  { type: 'dock', walkable: true, fishable: true, color: '#92400e', label: 'Dock', char: 'P' },
-  { type: 'mud', walkable: true, fishable: false, color: '#78350f', label: 'Mud', char: 'M' },
-  { type: 'rock', walkable: false, fishable: false, color: '#6b7280', label: 'Rock', char: 'R' },
-  { type: 'shop', walkable: true, fishable: false, color: '#c084fc', label: 'Shop', char: 'H' },
-];
+function SaveStatus({ isDirty, lastSavedAt }: { isDirty: boolean; lastSavedAt: number | null }) {
+  const formatTime = (timestamp: number) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
-const DEFAULT_WIDTH = 64;
-const DEFAULT_HEIGHT = 48;
-const TILE_SIZE = 8;
+  if (isDirty) {
+    return (
+      <span className="text-yellow-400 text-sm flex items-center gap-1">
+        <span className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+        Unsaved changes
+      </span>
+    );
+  }
+
+  if (lastSavedAt) {
+    return (
+      <span className="text-green-400 text-sm flex items-center gap-1">
+        <span className="w-2 h-2 bg-green-400 rounded-full" />
+        Saved to browser at {formatTime(lastSavedAt)}
+      </span>
+    );
+  }
+
+  return (
+    <span className="text-gray-400 text-sm flex items-center gap-1">
+      <span className="w-2 h-2 bg-gray-400 rounded-full" />
+      Auto-saving to browser
+    </span>
+  );
+}
+
+function UndoRedoButtons({
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
+}: {
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
+}) {
+  return (
+    <div className="flex gap-1">
+      <button
+        onClick={onUndo}
+        disabled={!canUndo}
+        className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+          canUndo
+            ? 'bg-gray-600 hover:bg-gray-500 text-white'
+            : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+        }`}
+        title="Undo (Ctrl+Z)"
+      >
+        Undo
+      </button>
+      <button
+        onClick={onRedo}
+        disabled={!canRedo}
+        className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+          canRedo
+            ? 'bg-gray-600 hover:bg-gray-500 text-white'
+            : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+        }`}
+        title="Redo (Ctrl+Shift+Z)"
+      >
+        Redo
+      </button>
+    </div>
+  );
+}
 
 function SceneEditor() {
-  const [sceneName, setSceneName] = useState('New Scene');
-  const [sceneId, setSceneId] = useState('new_scene');
-  const [sceneDescription, setSceneDescription] = useState('A new fishing location.');
-  const [sceneEmoji, setSceneEmoji] = useState('🎣');
-  const [width, setWidth] = useState(DEFAULT_WIDTH);
-  const [height, setHeight] = useState(DEFAULT_HEIGHT);
-  const [spawnX, setSpawnX] = useState(20);
-  const [spawnY, setSpawnY] = useState(32);
-  const [selectedTile, setSelectedTile] = useState<TileConfig>(TILE_CONFIGS[0]);
-  const [grid, setGrid] = useState<string[][]>(() =>
-    Array(DEFAULT_HEIGHT).fill(null).map(() => Array(DEFAULT_WIDTH).fill('G'))
-  );
-  const [isDrawing, setIsDrawing] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  const {
+    sceneName,
+    sceneId,
+    sceneDescription,
+    sceneEmoji,
+    width,
+    height,
+    spawnX,
+    spawnY,
+    selectedTile,
+    grid,
+    isDrawing,
+    isDirty,
+    lastSavedAt,
+    setSceneName,
+    setSceneId,
+    setSceneDescription,
+    setSceneEmoji,
+    setSpawnX,
+    setSpawnY,
+    setSelectedTile,
+    setCell,
+    setIsDrawing,
+    resizeGrid,
+    fillAll,
+    clearAll,
+    loadFromJSON,
+    generateJSON,
+    pushHistory,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    markSaved,
+  } = useSceneStore();
+
   const [copied, setCopied] = useState(false);
   const [pasted, setPasted] = useState(false);
   const [pasteError, setPasteError] = useState('');
 
-  const handleCellClick = useCallback((row: number, col: number) => {
-    setGrid(prev => {
-      const newGrid = prev.map(r => [...r]);
-      newGrid[row][col] = selectedTile.char;
-      return newGrid;
-    });
-  }, [selectedTile]);
+  // Track when drawing starts to push history once per stroke
+  const [strokeStarted, setStrokeStarted] = useState(false);
+
+  // Hydration guard - only render after client mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          if (canRedo()) redo();
+        } else {
+          if (canUndo()) undo();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo, canUndo, canRedo]);
+
+  // Mark as saved periodically when dirty
+  useEffect(() => {
+    if (isDirty) {
+      const timer = setTimeout(() => {
+        markSaved();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isDirty, grid, sceneName, sceneId, markSaved]);
 
   const handleMouseDown = useCallback((row: number, col: number) => {
+    if (!strokeStarted) {
+      pushHistory();
+      setStrokeStarted(true);
+    }
     setIsDrawing(true);
-    handleCellClick(row, col);
-  }, [handleCellClick]);
+    setCell(row, col);
+  }, [strokeStarted, pushHistory, setIsDrawing, setCell]);
 
   const handleMouseEnter = useCallback((row: number, col: number) => {
     if (isDrawing) {
-      handleCellClick(row, col);
+      setCell(row, col);
     }
-  }, [isDrawing, handleCellClick]);
+  }, [isDrawing, setCell]);
 
   const handleMouseUp = useCallback(() => {
     setIsDrawing(false);
-  }, []);
-
-  const resizeGrid = useCallback((newWidth: number, newHeight: number) => {
-    setGrid(prev => {
-      const newGrid: string[][] = [];
-      for (let y = 0; y < newHeight; y++) {
-        const row: string[] = [];
-        for (let x = 0; x < newWidth; x++) {
-          row.push(prev[y]?.[x] ?? 'G');
-        }
-        newGrid.push(row);
-      }
-      return newGrid;
-    });
-    setWidth(newWidth);
-    setHeight(newHeight);
-  }, []);
-
-  const fillAll = useCallback(() => {
-    setGrid(Array(height).fill(null).map(() => Array(width).fill(selectedTile.char)));
-  }, [height, width, selectedTile]);
-
-  const clearAll = useCallback(() => {
-    setGrid(Array(height).fill(null).map(() => Array(width).fill('G')));
-  }, [height, width]);
-
-  const generateJSON = useCallback(() => {
-    // Build legend from used tiles
-    const usedChars = new Set<string>();
-    grid.forEach(row => row.forEach(char => usedChars.add(char)));
-
-    const legend: Record<string, { type: TileType; walkable: boolean; fishable: boolean }> = {};
-    TILE_CONFIGS.forEach(config => {
-      if (usedChars.has(config.char)) {
-        legend[config.char] = {
-          type: config.type,
-          walkable: config.walkable,
-          fishable: config.fishable,
-        };
-      }
-    });
-
-    const sceneData = {
-      id: sceneId,
-      name: sceneName,
-      description: sceneDescription,
-      emoji: sceneEmoji,
-      spawnPoint: { x: spawnX, y: spawnY },
-      map: {
-        width,
-        height,
-        tileSize: TILE_SIZE,
-        legend,
-        data: grid.map(row => row.join('')),
-      },
-      exits: [],
-    };
-
-    return JSON.stringify(sceneData, null, 2);
-  }, [grid, sceneId, sceneName, sceneDescription, sceneEmoji, spawnX, spawnY, width, height]);
+    setStrokeStarted(false);
+  }, [setIsDrawing]);
 
   const copyToClipboard = useCallback(() => {
     navigator.clipboard.writeText(generateJSON());
@@ -142,30 +205,11 @@ function SceneEditor() {
       const text = await navigator.clipboard.readText();
       const data = JSON.parse(text);
 
-      // Validate required fields
       if (!data.map?.data || !Array.isArray(data.map.data)) {
         throw new Error('Invalid scene JSON: missing map.data');
       }
 
-      // Load scene metadata
-      if (data.id) setSceneId(data.id);
-      if (data.name) setSceneName(data.name);
-      if (data.description) setSceneDescription(data.description);
-      if (data.emoji) setSceneEmoji(data.emoji);
-      if (data.spawnPoint) {
-        setSpawnX(data.spawnPoint.x ?? 0);
-        setSpawnY(data.spawnPoint.y ?? 0);
-      }
-
-      // Load grid dimensions and data
-      const newHeight = data.map.data.length;
-      const newWidth = data.map.data[0]?.length ?? DEFAULT_WIDTH;
-      setWidth(newWidth);
-      setHeight(newHeight);
-
-      // Convert map data strings to 2D grid
-      const newGrid = data.map.data.map((row: string) => row.split(''));
-      setGrid(newGrid);
+      loadFromJSON(data);
 
       setPasted(true);
       setTimeout(() => setPasted(false), 2000);
@@ -173,17 +217,38 @@ function SceneEditor() {
       setPasteError(err instanceof Error ? err.message : 'Failed to parse JSON');
       setTimeout(() => setPasteError(''), 3000);
     }
-  }, []);
+  }, [loadFromJSON]);
 
-  const getTileColor = (char: string): string => {
-    return TILE_CONFIGS.find(c => c.char === char)?.color ?? '#888';
+  // Get textures from the texture store
+  const textures = useTextureStore((state) => state.textures);
+
+  const getTileType = (char: string): TileType => {
+    return TILE_CONFIGS.find(c => c.char === char)?.type ?? 'grass';
   };
+
+  // Don't render until client-side hydration is complete
+  if (!mounted) {
+    return <EditorLoading />;
+  }
 
   return (
     <div
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
+      {/* Toolbar */}
+      <div className="flex items-center justify-between mb-4 bg-gray-800 rounded-lg p-3">
+        <div className="flex items-center gap-4">
+          <UndoRedoButtons
+            canUndo={canUndo()}
+            canRedo={canRedo()}
+            onUndo={undo}
+            onRedo={redo}
+          />
+        </div>
+        <SaveStatus isDirty={isDirty} lastSavedAt={lastSavedAt} />
+      </div>
+
       <div className="flex gap-8">
         {/* Left Panel - Controls */}
         <div className="w-72 space-y-6">
@@ -298,21 +363,52 @@ function SceneEditor() {
             <h2 className="text-lg font-semibold border-b border-gray-700 pb-2">Tile Palette</h2>
 
             <div className="grid grid-cols-3 gap-2">
-              {TILE_CONFIGS.map((config) => (
-                <button
-                  key={config.type}
-                  onClick={() => setSelectedTile(config)}
-                  className={`p-2 rounded text-xs font-medium transition-all ${
-                    selectedTile.type === config.type
-                      ? 'ring-2 ring-white ring-offset-2 ring-offset-gray-800'
-                      : 'hover:opacity-80'
-                  }`}
-                  style={{ backgroundColor: config.color }}
-                >
-                  <div className="text-black font-bold">{config.char}</div>
-                  <div className="text-black/70 text-[10px]">{config.label}</div>
-                </button>
-              ))}
+              {TILE_CONFIGS.map((config) => {
+                const texture = textures[config.type];
+                const pixelSize = 32 / 16; // 32px button / 16px texture
+                return (
+                  <button
+                    key={config.type}
+                    onClick={() => setSelectedTile(config)}
+                    className={`rounded text-xs font-medium transition-all overflow-hidden ${
+                      selectedTile.type === config.type
+                        ? 'ring-2 ring-white ring-offset-2 ring-offset-gray-800'
+                        : 'hover:opacity-80'
+                    }`}
+                  >
+                    <svg width={64} height={40} className="w-full">
+                      <defs>
+                        <pattern
+                          id={`palette-${config.type}`}
+                          width={32}
+                          height={32}
+                          patternUnits="userSpaceOnUse"
+                        >
+                          {texture.pixels.map((row, y) =>
+                            row.map((color, x) => (
+                              <rect
+                                key={`${x}-${y}`}
+                                x={x * pixelSize}
+                                y={y * pixelSize}
+                                width={pixelSize}
+                                height={pixelSize}
+                                fill={color}
+                              />
+                            ))
+                          )}
+                        </pattern>
+                      </defs>
+                      <rect width={64} height={40} fill={`url(#palette-${config.type})`} />
+                      <text x={32} y={16} textAnchor="middle" className="fill-white text-[10px] font-bold" style={{ textShadow: '0 0 3px black, 0 0 3px black' }}>
+                        {config.char}
+                      </text>
+                      <text x={32} y={28} textAnchor="middle" className="fill-white/80 text-[8px]" style={{ textShadow: '0 0 2px black, 0 0 2px black' }}>
+                        {config.label}
+                      </text>
+                    </svg>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -344,29 +440,38 @@ function SceneEditor() {
             <h2 className="text-lg font-semibold border-b border-gray-700 pb-2 mb-4">Canvas</h2>
             <p className="text-sm text-gray-400 mb-4">Click and drag to draw tiles. Spawn point is marked with a star.</p>
 
-            <div
-              className="inline-block border border-gray-600 rounded overflow-hidden select-none"
+            <svg
+              width={width * 12}
+              height={height * 12}
+              className="border border-gray-600 rounded select-none"
               style={{ cursor: 'crosshair' }}
             >
-              {grid.map((row, y) => (
-                <div key={y} className="flex">
-                  {row.map((char, x) => (
-                    <div
-                      key={`${x}-${y}`}
-                      onMouseDown={() => handleMouseDown(y, x)}
-                      onMouseEnter={() => handleMouseEnter(y, x)}
-                      className="w-3 h-3 flex items-center justify-center text-[6px] font-bold border-0 transition-colors"
-                      style={{ backgroundColor: getTileColor(char) }}
-                      title={`(${x}, ${y}) - ${TILE_CONFIGS.find(c => c.char === char)?.label ?? char}`}
-                    >
-                      {spawnX === x && spawnY === y && (
-                        <span className="text-yellow-300 text-[8px] drop-shadow-lg">*</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
+              {renderAllPatterns(textures, 12)}
+              {grid.map((row, y) =>
+                row.map((char, x) => (
+                  <rect
+                    key={`${x}-${y}`}
+                    x={x * 12}
+                    y={y * 12}
+                    width={12}
+                    height={12}
+                    fill={getPatternFill(getTileType(char))}
+                    onMouseDown={() => handleMouseDown(y, x)}
+                    onMouseEnter={() => handleMouseEnter(y, x)}
+                  />
+                ))
+              )}
+              {/* Spawn point marker */}
+              <text
+                x={spawnX * 12 + 6}
+                y={spawnY * 12 + 9}
+                textAnchor="middle"
+                className="fill-yellow-300 text-[10px] font-bold pointer-events-none"
+                style={{ textShadow: '0 0 2px black' }}
+              >
+                *
+              </text>
+            </svg>
           </div>
 
           {/* JSON Output */}
@@ -415,9 +520,31 @@ function SceneEditor() {
 export default function EditorPage() {
   const [activeTab, setActiveTab] = useState<EditorTab>('scene');
 
+  // Get dirty state from both editors for beforeunload warning
+  const sceneIsDirty = useSceneStore((state) => state.isDirty);
+  const textureIsDirty = useTextureStore((state) => state.isDirty);
+
+  // Warn before leaving if there are unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (sceneIsDirty || textureIsDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [sceneIsDirty, textureIsDirty]);
+
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6">
-      <h1 className="text-3xl font-bold mb-6">Editor</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold">Editor</h1>
+        <div className="text-sm text-gray-400">
+          Changes are automatically saved to your browser
+        </div>
+      </div>
 
       <EditorTabs activeTab={activeTab} onTabChange={setActiveTab} />
 

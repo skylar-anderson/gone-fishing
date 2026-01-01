@@ -3,6 +3,7 @@
 import { SceneId, ClientMessage } from '@/lib/types';
 import { useGameStore } from '@/store/gameStore';
 import { useScenes } from '@/lib/hooks/useScenes';
+import { useButtonSound } from '@/lib/hooks/useButtonSound';
 
 interface SceneSelectorProps {
   sendMessage: (message: ClientMessage) => void;
@@ -11,6 +12,7 @@ interface SceneSelectorProps {
 export function SceneSelector({ sendMessage }: SceneSelectorProps) {
   const { currentScene } = useGameStore();
   const { scenes, loading } = useScenes();
+  const withSound = useButtonSound();
 
   const handleSceneChange = (sceneId: SceneId) => {
     if (sceneId === currentScene) return;
@@ -33,7 +35,7 @@ export function SceneSelector({ sendMessage }: SceneSelectorProps) {
         {scenes.map((scene) => (
           <button
             key={scene.id}
-            onClick={() => handleSceneChange(scene.id)}
+            onClick={withSound(() => handleSceneChange(scene.id))}
             disabled={scene.id === currentScene}
             className={`w-full text-left p-3 rounded transition-colors ${
               scene.id === currentScene

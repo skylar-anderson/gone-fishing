@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { SceneId } from '@/lib/types';
 import { useScenes, getDefaultSceneId } from '@/lib/hooks/useScenes';
+import { useButtonSound } from '@/lib/hooks/useButtonSound';
+import { useSound } from '@/lib/hooks/useSound';
 
 interface LoginFormProps {
   onJoin: (name: string, scene: SceneId) => void;
@@ -14,6 +16,8 @@ export function LoginForm({ onJoin, isConnecting }: LoginFormProps) {
   const [name, setName] = useState('');
   const [selectedScene, setSelectedScene] = useState<SceneId>('');
   const [error, setError] = useState('');
+  const withSound = useButtonSound();
+  const { play: playButtonSound } = useSound('/sounds/button.wav');
 
   // Set default scene once scenes are loaded
   useEffect(() => {
@@ -40,6 +44,7 @@ export function LoginForm({ onJoin, isConnecting }: LoginFormProps) {
     }
 
     setError('');
+    playButtonSound();
     onJoin(trimmedName, selectedScene);
   };
 
@@ -81,7 +86,7 @@ export function LoginForm({ onJoin, isConnecting }: LoginFormProps) {
                   <button
                     key={scene.id}
                     type="button"
-                    onClick={() => setSelectedScene(scene.id)}
+                    onClick={withSound(() => setSelectedScene(scene.id))}
                     disabled={isConnecting}
                     className={`p-3 rounded-lg border-2 transition-colors ${
                       selectedScene === scene.id

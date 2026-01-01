@@ -2,6 +2,8 @@
 
 import { useGameStore } from '@/store/gameStore';
 import { ClientMessage } from '@/lib/types';
+import { useSound } from '@/lib/hooks/useSound';
+import { useButtonSound } from '@/lib/hooks/useButtonSound';
 
 interface ShopModalProps {
   sendMessage: (message: ClientMessage) => void;
@@ -9,6 +11,8 @@ interface ShopModalProps {
 
 export function ShopModal({ sendMessage }: ShopModalProps) {
   const { shopOpen, shopData, setShopOpen } = useGameStore();
+  const { play: playPurchaseSound } = useSound('/sounds/purchase.wav');
+  const withSound = useButtonSound();
 
   if (!shopOpen || !shopData) return null;
 
@@ -18,6 +22,7 @@ export function ShopModal({ sendMessage }: ShopModalProps) {
   };
 
   const handleBuy = () => {
+    playPurchaseSound();
     sendMessage({ type: 'BUY_POLE_UPGRADE', payload: {} });
   };
 
@@ -83,7 +88,7 @@ export function ShopModal({ sendMessage }: ShopModalProps) {
               </button>
             )}
             <button
-              onClick={handleClose}
+              onClick={withSound(handleClose)}
               className="px-6 py-2 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded-lg transition-colors"
             >
               Close

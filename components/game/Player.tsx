@@ -1,8 +1,9 @@
 'use client';
 
+import { memo } from 'react';
 import { Position, Direction } from '@/lib/types';
 
-interface PlayerProps {
+export interface PlayerProps {
   name: string;
   position: Position;
   direction: Direction;
@@ -18,7 +19,7 @@ const DIRECTION_ARROWS: Record<Direction, string> = {
   right: '>',
 };
 
-export function Player({
+export const Player = memo(function Player({
   name,
   position,
   direction,
@@ -84,4 +85,4 @@ export function Player({
       )}
     </g>
   );
-}
+});

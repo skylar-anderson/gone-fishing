@@ -7,7 +7,7 @@
   "map": {
     "width": 64,
     "height": 48,
-    "tileSize": 8,
+    "tileSize": 16,
     "legend": {
       "G": { "type": "grass", "walkable": true, "fishable": false },
       "S": { "type": "sand", "walkable": true, "fishable": false },
