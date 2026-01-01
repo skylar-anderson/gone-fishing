@@ -1,0 +1,57 @@
+scene: river
+fish:
+  - id: trout
+    name: Rainbow Trout
+    rarity: common
+    catchChance: 30
+    value: 15
+    emoji: "🌈"
+    description: "A colorful fish prized by anglers."
+
+  - id: perch
+    name: Yellow Perch
+    rarity: common
+    catchChance: 28
+    value: 10
+    emoji: "🐟"
+    description: "A striped fish found in cool rivers."
+
+  - id: salmon
+    name: Salmon
+    rarity: uncommon
+    catchChance: 20
+    value: 50
+    emoji: "🐠"
+    description: "A powerful fish swimming upstream."
+
+  - id: pike
+    name: Northern Pike
+    rarity: uncommon
+    catchChance: 12
+    value: 65
+    emoji: "🦈"
+    description: "A fierce predator with razor-sharp teeth."
+
+  - id: sturgeon
+    name: Sturgeon
+    rarity: rare
+    catchChance: 6
+    value: 200
+    emoji: "🐋"
+    description: "An ancient, dinosaur-like fish."
+
+  - id: golden_trout
+    name: Golden Trout
+    rarity: epic
+    catchChance: 3
+    value: 600
+    emoji: "✨"
+    description: "A rare golden variant of the rainbow trout."
+
+  - id: river_king
+    name: River King
+    rarity: legendary
+    catchChance: 1
+    value: 3000
+    emoji: "👑"
+    description: "The mythical ruler of all river fish."

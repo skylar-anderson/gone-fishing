@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  turbopack: {
+    root: "/Users/skylar-anderson/code/fishing-game",
+  },
 };
 
 export default nextConfig;

@@ -1,0 +1,89 @@
+scene: ocean
+fish:
+  - id: sardine
+    name: Sardine
+    rarity: common
+    catchChance: 35
+    value: 2
+    emoji: "🐟"
+    description: "A tiny, abundant ocean fish."
+
+  - id: mackerel
+    name: Mackerel
+    rarity: common
+    catchChance: 28
+    value: 8
+    emoji: "🐠"
+    description: "A fast-swimming schooling fish."
+
+  - id: tuna
+    name: Bluefin Tuna
+    rarity: uncommon
+    catchChance: 15
+    value: 75
+    emoji: "🐡"
+    description: "A powerful fish prized by chefs."
+
+  - id: swordfish
+    name: Swordfish
+    rarity: rare
+    catchChance: 8
+    value: 250
+    emoji: "⚔️"
+    description: "A magnificent fish with a sword-like bill."
+
+  - id: marlin
+    name: Blue Marlin
+    rarity: rare
+    catchChance: 6
+    value: 350
+    emoji: "🎣"
+    description: "The ultimate trophy fish for sport fishers."
+
+  - id: giant_squid
+    name: Giant Squid
+    rarity: epic
+    catchChance: 4
+    value: 800
+    emoji: "🦑"
+    description: "A massive cephalopod from the deep."
+
+  - id: mermaid_scale
+    name: Mermaid's Scale
+    rarity: epic
+    catchChance: 2.5
+    value: 1200
+    emoji: "🧜"
+    description: "A shimmering scale lost by a mermaid."
+
+  - id: leviathan
+    name: Leviathan
+    rarity: legendary
+    catchChance: 0.5
+    value: 10000
+    emoji: "🐉"
+    description: "The legendary sea monster itself!"
+
+  - id: bloop
+    name: Bloop
+    rarity: legendary
+    catchChance: 0.25
+    value: 50000
+    emoji: "🦈"
+    description: "Big mouth, tiny teeth, blue,and very hungry"
+
+  - id: el_gran_maja
+    name: El Gran Maja
+    rarity: legendary
+    catchChance: 0.1
+    value: 100000
+    emoji: "🐟"
+    description: "Terrifying eel-like creature with multiple white eyes and a huge mouth"
+
+  - id: the_kraken
+    name: The Kraken
+    rarity: legendary
+    catchChance: 0.1
+    value: 200000
+    emoji: "🐙"
+    description: "A massive octopus-like creature with multiple arms and a huge mouth"

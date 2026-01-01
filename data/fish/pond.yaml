@@ -1,0 +1,57 @@
+scene: pond
+fish:
+  - id: bluegill
+    name: Bluegill
+    rarity: common
+    catchChance: 35
+    value: 5
+    emoji: "🐟"
+    description: "A small, common pond fish with bluish coloring."
+
+  - id: sunfish
+    name: Sunfish
+    rarity: common
+    catchChance: 30
+    value: 8
+    emoji: "🌞"
+    description: "A colorful fish that loves sunny shallows."
+
+  - id: largemouth_bass
+    name: Largemouth Bass
+    rarity: uncommon
+    catchChance: 18
+    value: 25
+    emoji: "🐠"
+    description: "A popular game fish known for its large mouth."
+
+  - id: channel_catfish
+    name: Channel Catfish
+    rarity: uncommon
+    catchChance: 12
+    value: 35
+    emoji: "🐡"
+    description: "A whiskered bottom-feeder that grows quite large."
+
+  - id: golden_koi
+    name: Golden Koi
+    rarity: rare
+    catchChance: 4
+    value: 150
+    emoji: "✨"
+    description: "A beautiful ornamental fish with golden scales."
+
+  - id: ancient_carp
+    name: Ancient Carp
+    rarity: epic
+    catchChance: 0.8
+    value: 500
+    emoji: "👴"
+    description: "A massive carp that has lived for centuries."
+
+  - id: spirit_fish
+    name: Spirit Fish
+    rarity: legendary
+    catchChance: 0.2
+    value: 2500
+    emoji: "👻"
+    description: "A mystical fish that glows with ethereal light."

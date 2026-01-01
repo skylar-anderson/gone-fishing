@@ -1,65 +1,127 @@
-import Image from "next/image";
+'use client';
+
+import { useCallback } from 'react';
+import { useGameStore } from '@/store/gameStore';
+import { useWebSocket } from '@/lib/hooks/useWebSocket';
+import { useKeyboard } from '@/lib/hooks/useKeyboard';
+import { LoginForm } from '@/components/ui/LoginForm';
+import { GameCanvas } from '@/components/game/GameCanvas';
+import { Inventory } from '@/components/ui/Inventory';
+import { SceneSelector } from '@/components/ui/SceneSelector';
+import { PlayerList } from '@/components/ui/PlayerList';
+import { CatchModal } from '@/components/ui/CatchModal';
+import { ShopModal } from '@/components/ui/ShopModal';
+import { ToastContainer } from '@/components/ui/Toast';
+import { SceneId } from '@/lib/types';
+import { getPole } from '@/data/poles';
 
 export default function Home() {
+  const { connected, connecting, playerName, scene, money, poleLevel } = useGameStore();
+  const { connect, sendMessage } = useWebSocket();
+  const currentPole = getPole(poleLevel);
+
+  // Handle keyboard input for movement
+  useKeyboard({ sendMessage });
+
+  const handleJoin = useCallback(
+    (name: string, selectedScene: SceneId) => {
+      connect(name, selectedScene);
+    },
+    [connect]
+  );
+
+  // Show login form if not connected
+  if (!connected || !playerName) {
+    return <LoginForm onJoin={handleJoin} isConnecting={connecting} />;
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 p-4">
+      {/* Header */}
+      <header className="max-w-6xl mx-auto mb-4">
+        <div className="flex justify-between items-center bg-gray-800 rounded-lg p-4 shadow-lg">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold text-white">🎣 Fishing Game</h1>
+            <span className="text-gray-400">|</span>
+            <span className="text-blue-400 font-medium">{playerName}</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-purple-400 font-medium" title={currentPole.description}>
+              {currentPole.emoji} {currentPole.name}
+            </div>
+            <span className="text-gray-600">|</span>
+            <div className="text-yellow-400 font-bold text-lg">${money}</div>
+            {scene && (
+              <div className="text-gray-400">
+                📍 {scene.name}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </header>
+
+      {/* Main content */}
+      <main className="max-w-6xl mx-auto">
+        <div className="flex gap-4 flex-col lg:flex-row">
+          {/* Left sidebar */}
+          <div className="lg:w-72 flex flex-col gap-4">
+            <SceneSelector sendMessage={sendMessage} />
+            <PlayerList />
+          </div>
+
+          {/* Game canvas */}
+          <div className="flex-1 flex justify-center">
+            <GameCanvas />
+          </div>
+
+          {/* Right sidebar - Inventory */}
+          <div className="lg:w-72">
+            <Inventory sendMessage={sendMessage} />
+          </div>
         </div>
       </main>
+
+      {/* Catch modal */}
+      <CatchModal sendMessage={sendMessage} />
+
+      {/* Shop modal */}
+      <ShopModal sendMessage={sendMessage} />
+
+      {/* Toast notifications */}
+      <ToastContainer />
+
+      {/* CSS for animations */}
+      <style jsx global>{`
+        @keyframes bounce-in {
+          0% {
+            transform: scale(0.5);
+            opacity: 0;
+          }
+          60% {
+            transform: scale(1.1);
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+        .animate-bounce-in {
+          animation: bounce-in 0.3s ease-out;
+        }
+        @keyframes slide-in {
+          0% {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          100% {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        .animate-slide-in {
+          animation: slide-in 0.2s ease-out;
+        }
+      `}</style>
     </div>
   );
 }

@@ -1,0 +1,57 @@
+scene: swamp
+fish:
+  - id: mudfish
+    name: Mudfish
+    rarity: common
+    catchChance: 40
+    value: 3
+    emoji: "🐟"
+    description: "A slimy fish that thrives in murky waters."
+
+  - id: swamp_eel
+    name: Swamp Eel
+    rarity: common
+    catchChance: 25
+    value: 8
+    emoji: "🐍"
+    description: "A serpentine fish that lurks in the shallows."
+
+  - id: bowfin
+    name: Bowfin
+    rarity: uncommon
+    catchChance: 18
+    value: 20
+    emoji: "🐠"
+    description: "A primitive fish with a long dorsal fin."
+
+  - id: snapping_turtle
+    name: Snapping Turtle
+    rarity: uncommon
+    catchChance: 10
+    value: 45
+    emoji: "🐢"
+    description: "Not a fish, but it bit your line anyway!"
+
+  - id: gator_gar
+    name: Gator Gar
+    rarity: rare
+    catchChance: 5
+    value: 120
+    emoji: "🐊"
+    description: "A fearsome fish with an alligator-like snout."
+
+  - id: ghost_catfish
+    name: Ghost Catfish
+    rarity: epic
+    catchChance: 1.5
+    value: 400
+    emoji: "👻"
+    description: "A pale, translucent catfish rarely seen."
+
+  - id: swamp_monster
+    name: Swamp Monster
+    rarity: legendary
+    catchChance: 0.5
+    value: 5000
+    emoji: "👹"
+    description: "A terrifying creature of legend."
