@@ -2,58 +2,35 @@
 
 import { SceneId, ClientMessage } from '@/lib/types';
 import { useGameStore } from '@/store/gameStore';
+import { useScenes } from '@/lib/hooks/useScenes';
 
 interface SceneSelectorProps {
   sendMessage: (message: ClientMessage) => void;
 }
 
-interface SceneInfo {
-  id: SceneId;
-  name: string;
-  emoji: string;
-  description: string;
-}
-
-const SCENES: SceneInfo[] = [
-  {
-    id: 'pond',
-    name: 'Peaceful Pond',
-    emoji: '🏞️',
-    description: 'A quiet pond surrounded by grass',
-  },
-  {
-    id: 'swamp',
-    name: 'Murky Swamp',
-    emoji: '🌿',
-    description: 'A dark, foggy swamp',
-  },
-  {
-    id: 'river',
-    name: 'Rushing River',
-    emoji: '🏔️',
-    description: 'A fast-flowing mountain river',
-  },
-  {
-    id: 'ocean',
-    name: 'Ocean Beach',
-    emoji: '🏖️',
-    description: 'A sandy beach by the sea',
-  },
-];
-
 export function SceneSelector({ sendMessage }: SceneSelectorProps) {
   const { currentScene } = useGameStore();
+  const { scenes, loading } = useScenes();
 
   const handleSceneChange = (sceneId: SceneId) => {
     if (sceneId === currentScene) return;
     sendMessage({ type: 'CHANGE_SCENE', payload: { scene: sceneId } });
   };
 
+  if (loading) {
+    return (
+      <div className="bg-gray-800 p-4 rounded-lg shadow-lg">
+        <h2 className="text-white text-lg font-bold mb-3">Locations</h2>
+        <div className="text-gray-400">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-gray-800 p-4 rounded-lg shadow-lg">
       <h2 className="text-white text-lg font-bold mb-3">Locations</h2>
       <div className="space-y-2">
-        {SCENES.map((scene) => (
+        {scenes.map((scene) => (
           <button
             key={scene.id}
             onClick={() => handleSceneChange(scene.id)}

@@ -2,6 +2,7 @@
   "id": "swamp",
   "name": "Murky Swamp",
   "description": "A dark, foggy swamp with mysterious waters.",
+  "emoji": "🌿",
   "spawnPoint": { "x": 16, "y": 0 },
   "map": {
     "width": 64,

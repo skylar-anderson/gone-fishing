@@ -1,13 +1,13 @@
 import fs from 'fs';
 import path from 'path';
 import { Scene, SceneId, Tile, TileMap, SceneExit } from '@/lib/types';
+import { getSceneIds } from '@/lib/scenes/registry';
 
 interface RawSceneData {
   id: string;
   name: string;
   description: string;
   spawnPoint: { x: number; y: number };
-  backgroundImage?: string;
   map: {
     width: number;
     height: number;
@@ -62,7 +62,6 @@ export function parseSceneData(raw: RawSceneData): Scene {
     spawnPoint: raw.spawnPoint,
     map: tileMap,
     exits,
-    backgroundImage: raw.backgroundImage,
   };
 }
 
@@ -73,10 +72,10 @@ export function loadScene(sceneId: SceneId): Scene {
 }
 
 export function loadAllScenes(): Map<SceneId, Scene> {
-  const scenes: SceneId[] = ['swamp', 'pond', 'river', 'ocean'];
+  const sceneIds = getSceneIds();
   const sceneMap = new Map<SceneId, Scene>();
 
-  for (const sceneId of scenes) {
+  for (const sceneId of sceneIds) {
     sceneMap.set(sceneId, loadScene(sceneId));
   }
 

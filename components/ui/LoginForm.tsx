@@ -1,30 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SceneId } from '@/lib/types';
+import { useScenes, getDefaultSceneId } from '@/lib/hooks/useScenes';
 
 interface LoginFormProps {
   onJoin: (name: string, scene: SceneId) => void;
   isConnecting: boolean;
 }
 
-interface SceneOption {
-  id: SceneId;
-  name: string;
-  emoji: string;
-}
-
-const SCENES: SceneOption[] = [
-  { id: 'pond', name: 'Peaceful Pond', emoji: '🏞️' },
-  { id: 'swamp', name: 'Murky Swamp', emoji: '🌿' },
-  { id: 'river', name: 'Rushing River', emoji: '🏔️' },
-  { id: 'ocean', name: 'Ocean Beach', emoji: '🏖️' },
-];
-
 export function LoginForm({ onJoin, isConnecting }: LoginFormProps) {
+  const { scenes, loading: scenesLoading } = useScenes();
   const [name, setName] = useState('');
-  const [selectedScene, setSelectedScene] = useState<SceneId>('pond');
+  const [selectedScene, setSelectedScene] = useState<SceneId>('');
   const [error, setError] = useState('');
+
+  // Set default scene once scenes are loaded
+  useEffect(() => {
+    if (scenes.length > 0 && !selectedScene) {
+      setSelectedScene(getDefaultSceneId(scenes));
+    }
+  }, [scenes, selectedScene]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,24 +73,28 @@ export function LoginForm({ onJoin, isConnecting }: LoginFormProps) {
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Choose Starting Location
             </label>
-            <div className="grid grid-cols-2 gap-3">
-              {SCENES.map((scene) => (
-                <button
-                  key={scene.id}
-                  type="button"
-                  onClick={() => setSelectedScene(scene.id)}
-                  disabled={isConnecting}
-                  className={`p-3 rounded-lg border-2 transition-colors ${
-                    selectedScene === scene.id
-                      ? 'border-blue-500 bg-blue-500/20 text-white'
-                      : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
-                  }`}
-                >
-                  <span className="text-2xl block mb-1">{scene.emoji}</span>
-                  <span className="text-sm font-medium">{scene.name}</span>
-                </button>
-              ))}
-            </div>
+            {scenesLoading ? (
+              <div className="text-gray-400 text-center py-4">Loading scenes...</div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {scenes.map((scene) => (
+                  <button
+                    key={scene.id}
+                    type="button"
+                    onClick={() => setSelectedScene(scene.id)}
+                    disabled={isConnecting}
+                    className={`p-3 rounded-lg border-2 transition-colors ${
+                      selectedScene === scene.id
+                        ? 'border-blue-500 bg-blue-500/20 text-white'
+                        : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
+                    }`}
+                  >
+                    <span className="text-2xl block mb-1">{scene.emoji}</span>
+                    <span className="text-sm font-medium">{scene.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <button

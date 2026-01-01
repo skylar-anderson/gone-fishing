@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import type { TileType } from '@/lib/types';
+import { EditorTabs, type EditorTab } from '@/components/editor/EditorTabs';
+import { TextureEditor } from '@/components/editor/TextureEditor';
 
 interface TileConfig {
   type: TileType;
@@ -28,10 +30,11 @@ const DEFAULT_WIDTH = 64;
 const DEFAULT_HEIGHT = 48;
 const TILE_SIZE = 8;
 
-export default function SceneEditorPage() {
+function SceneEditor() {
   const [sceneName, setSceneName] = useState('New Scene');
   const [sceneId, setSceneId] = useState('new_scene');
   const [sceneDescription, setSceneDescription] = useState('A new fishing location.');
+  const [sceneEmoji, setSceneEmoji] = useState('🎣');
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
   const [spawnX, setSpawnX] = useState(20);
@@ -42,6 +45,8 @@ export default function SceneEditorPage() {
   );
   const [isDrawing, setIsDrawing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [pasted, setPasted] = useState(false);
+  const [pasteError, setPasteError] = useState('');
 
   const handleCellClick = useCallback((row: number, col: number) => {
     setGrid(prev => {
@@ -110,6 +115,7 @@ export default function SceneEditorPage() {
       id: sceneId,
       name: sceneName,
       description: sceneDescription,
+      emoji: sceneEmoji,
       spawnPoint: { x: spawnX, y: spawnY },
       map: {
         width,
@@ -122,7 +128,7 @@ export default function SceneEditorPage() {
     };
 
     return JSON.stringify(sceneData, null, 2);
-  }, [grid, sceneId, sceneName, sceneDescription, spawnX, spawnY, width, height]);
+  }, [grid, sceneId, sceneName, sceneDescription, sceneEmoji, spawnX, spawnY, width, height]);
 
   const copyToClipboard = useCallback(() => {
     navigator.clipboard.writeText(generateJSON());
@@ -130,18 +136,54 @@ export default function SceneEditorPage() {
     setTimeout(() => setCopied(false), 2000);
   }, [generateJSON]);
 
+  const pasteFromClipboard = useCallback(async () => {
+    try {
+      setPasteError('');
+      const text = await navigator.clipboard.readText();
+      const data = JSON.parse(text);
+
+      // Validate required fields
+      if (!data.map?.data || !Array.isArray(data.map.data)) {
+        throw new Error('Invalid scene JSON: missing map.data');
+      }
+
+      // Load scene metadata
+      if (data.id) setSceneId(data.id);
+      if (data.name) setSceneName(data.name);
+      if (data.description) setSceneDescription(data.description);
+      if (data.emoji) setSceneEmoji(data.emoji);
+      if (data.spawnPoint) {
+        setSpawnX(data.spawnPoint.x ?? 0);
+        setSpawnY(data.spawnPoint.y ?? 0);
+      }
+
+      // Load grid dimensions and data
+      const newHeight = data.map.data.length;
+      const newWidth = data.map.data[0]?.length ?? DEFAULT_WIDTH;
+      setWidth(newWidth);
+      setHeight(newHeight);
+
+      // Convert map data strings to 2D grid
+      const newGrid = data.map.data.map((row: string) => row.split(''));
+      setGrid(newGrid);
+
+      setPasted(true);
+      setTimeout(() => setPasted(false), 2000);
+    } catch (err) {
+      setPasteError(err instanceof Error ? err.message : 'Failed to parse JSON');
+      setTimeout(() => setPasteError(''), 3000);
+    }
+  }, []);
+
   const getTileColor = (char: string): string => {
     return TILE_CONFIGS.find(c => c.char === char)?.color ?? '#888';
   };
 
   return (
     <div
-      className="min-h-screen bg-gray-900 text-white p-6"
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
-      <h1 className="text-3xl font-bold mb-6">Scene Editor</h1>
-
       <div className="flex gap-8">
         {/* Left Panel - Controls */}
         <div className="w-72 space-y-6">
@@ -159,14 +201,26 @@ export default function SceneEditorPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Name</label>
-              <input
-                type="text"
-                value={sceneName}
-                onChange={(e) => setSceneName(e.target.value)}
-                className="w-full bg-gray-700 rounded px-3 py-2 text-sm"
-              />
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="block text-sm text-gray-400 mb-1">Name</label>
+                <input
+                  type="text"
+                  value={sceneName}
+                  onChange={(e) => setSceneName(e.target.value)}
+                  className="w-full bg-gray-700 rounded px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="w-16">
+                <label className="block text-sm text-gray-400 mb-1">Emoji</label>
+                <input
+                  type="text"
+                  value={sceneEmoji}
+                  onChange={(e) => setSceneEmoji(e.target.value)}
+                  className="w-full bg-gray-700 rounded px-3 py-2 text-sm text-center"
+                  maxLength={2}
+                />
+              </div>
             </div>
 
             <div>
@@ -191,7 +245,7 @@ export default function SceneEditorPage() {
                   value={width}
                   onChange={(e) => resizeGrid(parseInt(e.target.value) || 1, height)}
                   min={1}
-                  max={32}
+                  max={128}
                   className="w-full bg-gray-700 rounded px-3 py-2 text-sm"
                 />
               </div>
@@ -202,7 +256,7 @@ export default function SceneEditorPage() {
                   value={height}
                   onChange={(e) => resizeGrid(width, parseInt(e.target.value) || 1)}
                   min={1}
-                  max={32}
+                  max={128}
                   className="w-full bg-gray-700 rounded px-3 py-2 text-sm"
                 />
               </div>
@@ -319,17 +373,34 @@ export default function SceneEditorPage() {
           <div className="bg-gray-800 rounded-lg p-4">
             <div className="flex items-center justify-between border-b border-gray-700 pb-2 mb-4">
               <h2 className="text-lg font-semibold">JSON Output</h2>
-              <button
-                onClick={copyToClipboard}
-                className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
-                  copied
-                    ? 'bg-green-600 text-white'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
-                }`}
-              >
-                {copied ? 'Copied!' : 'Copy to Clipboard'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={pasteFromClipboard}
+                  className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+                    pasted
+                      ? 'bg-green-600 text-white'
+                      : pasteError
+                      ? 'bg-red-600 text-white'
+                      : 'bg-gray-600 hover:bg-gray-500 text-white'
+                  }`}
+                >
+                  {pasted ? 'Loaded!' : pasteError ? 'Error!' : 'Paste JSON'}
+                </button>
+                <button
+                  onClick={copyToClipboard}
+                  className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+                    copied
+                      ? 'bg-green-600 text-white'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  }`}
+                >
+                  {copied ? 'Copied!' : 'Copy JSON'}
+                </button>
+              </div>
             </div>
+            {pasteError && (
+              <div className="mb-4 text-red-400 text-sm">{pasteError}</div>
+            )}
 
             <pre className="bg-gray-900 rounded p-4 text-sm overflow-auto max-h-96 text-green-400 font-mono">
               {generateJSON()}
@@ -337,6 +408,20 @@ export default function SceneEditorPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+export default function EditorPage() {
+  const [activeTab, setActiveTab] = useState<EditorTab>('scene');
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white p-6">
+      <h1 className="text-3xl font-bold mb-6">Editor</h1>
+
+      <EditorTabs activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {activeTab === 'scene' ? <SceneEditor /> : <TextureEditor />}
     </div>
   );
 }

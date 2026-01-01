@@ -2,8 +2,8 @@
   "id": "pond",
   "name": "Peaceful Pond",
   "description": "A quiet pond surrounded by grass and trees.",
+  "emoji": "🏞️",
   "spawnPoint": { "x": 32, "y": 56 },
-  "backgroundImage": "/pond.png",
   "map": {
     "width": 64,
     "height": 64,

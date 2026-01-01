@@ -1,47 +1,30 @@
 'use client';
 
-import { TileMap as TileMapType, TileType } from '@/lib/types';
-
-const TILE_COLORS: Record<TileType, string> = {
-  grass: '#4ade80',
-  dirt: '#a16207',
-  sand: '#fde047',
-  water: '#38bdf8',
-  deep_water: '#1d4ed8',
-  dock: '#78716c',
-  mud: '#713f12',
-  rock: '#6b7280',
-  shop: '#a855f7',
-};
+import { TileMap as TileMapType } from '@/lib/types';
+import type { TileTextures } from '@/lib/types/textures';
+import { createAllDefaultTextures } from '@/lib/textures/defaults';
+import { renderAllPatterns, getPatternFill } from '@/lib/textures/patterns';
 
 interface TileMapProps {
   map: TileMapType;
-  backgroundImage?: string;
+  textures?: TileTextures;
 }
 
-export function TileMap({ map, backgroundImage }: TileMapProps) {
-  const width = map.width * map.tileSize;
-  const height = map.height * map.tileSize;
-
-  // If we have a background image, render it instead of tile colors
-  if (backgroundImage) {
-    return (
-      <g className="tile-map">
-        <image
-          href={backgroundImage}
-          x={0}
-          y={0}
-          width={width}
-          height={height}
-          preserveAspectRatio="none"
-        />
-      </g>
-    );
+// Lazily create default textures (only once)
+let defaultTextures: TileTextures | null = null;
+function getDefaultTextures(): TileTextures {
+  if (!defaultTextures) {
+    defaultTextures = createAllDefaultTextures();
   }
+  return defaultTextures;
+}
 
-  // Fallback to colored tiles
+export function TileMap({ map, textures }: TileMapProps) {
+  const activeTextures = textures ?? getDefaultTextures();
+
   return (
     <g className="tile-map">
+      {renderAllPatterns(activeTextures, map.tileSize)}
       {map.tiles.map((row, y) =>
         row.map((tile, x) => (
           <rect
@@ -50,7 +33,7 @@ export function TileMap({ map, backgroundImage }: TileMapProps) {
             y={y * map.tileSize}
             width={map.tileSize}
             height={map.tileSize}
-            fill={TILE_COLORS[tile.type]}
+            fill={getPatternFill(tile.type)}
           />
         ))
       )}

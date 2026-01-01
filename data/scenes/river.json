@@ -2,6 +2,7 @@
   "id": "river",
   "name": "Rushing River",
   "description": "A fast-flowing river with rocky shores.",
+  "emoji": "🏔️",
   "spawnPoint": { "x": 8, "y": 20 },
   "map": {
     "width": 64,

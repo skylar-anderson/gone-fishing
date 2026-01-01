@@ -1,5 +1,7 @@
 // Scene types
-export type SceneId = 'swamp' | 'pond' | 'river' | 'ocean';
+// SceneId is now a string to support dynamic scene discovery
+// Scenes are auto-discovered from data/scenes/*.json files
+export type SceneId = string;
 
 export type Direction = 'up' | 'down' | 'left' | 'right';
 
@@ -34,10 +36,10 @@ export interface Scene {
   id: SceneId;
   name: string;
   description: string;
+  emoji?: string;
   spawnPoint: Position;
   map: TileMap;
   exits: SceneExit[];
-  backgroundImage?: string;
 }
 
 // Fish types

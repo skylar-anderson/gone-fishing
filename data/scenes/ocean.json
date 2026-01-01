@@ -2,6 +2,7 @@
   "id": "ocean",
   "name": "Ocean Beach",
   "description": "A sandy beach overlooking the vast ocean.",
+  "emoji": "🏖️",
   "spawnPoint": { "x": 32, "y": 32 },
   "map": {
     "width": 64,

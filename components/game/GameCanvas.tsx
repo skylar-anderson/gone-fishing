@@ -3,9 +3,11 @@
 import { useGameStore } from '@/store/gameStore';
 import { TileMap } from './TileMap';
 import { Player } from './Player';
+import { useTextures } from '@/lib/hooks/useTextures';
 
 export function GameCanvas() {
   const { scene, playerName, position, direction, isFishing, otherPlayers } = useGameStore();
+  const { textures } = useTextures();
 
   if (!scene || !playerName) {
     return (
@@ -28,7 +30,7 @@ export function GameCanvas() {
         style={{ background: '#1a1a2e' }}
       >
         {/* Render tile map */}
-        <TileMap map={map} backgroundImage={scene.backgroundImage} />
+        <TileMap map={map} textures={textures} />
 
         {/* Render other players */}
         {Array.from(otherPlayers.values()).map((player) => (
