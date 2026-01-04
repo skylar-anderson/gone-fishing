@@ -1,65 +1,71 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import Link from 'next/link';
 import { SceneId } from '@/lib/types';
-import { useScenes, getDefaultSceneId } from '@/lib/hooks/useScenes';
 import { useButtonSound } from '@/lib/hooks/useButtonSound';
 import { useSound } from '@/lib/hooks/useSound';
 
 interface LoginFormProps {
-  onJoin: (name: string, scene: SceneId) => void;
+  onSubmit: (name: string, password: string) => void;
   isConnecting: boolean;
+  authError?: string | null;
+  mode: 'login' | 'register';
 }
 
-export function LoginForm({ onJoin, isConnecting }: LoginFormProps) {
-  const { scenes, loading: scenesLoading } = useScenes();
+export function LoginForm({ onSubmit, isConnecting, authError, mode }: LoginFormProps) {
   const [name, setName] = useState('');
-  const [selectedScene, setSelectedScene] = useState<SceneId>('');
-  const [error, setError] = useState('');
-  const withSound = useButtonSound();
+  const [password, setPassword] = useState('');
+  const [localError, setLocalError] = useState('');
   const { play: playButtonSound } = useSound('/sounds/button.wav');
 
-  // Set default scene once scenes are loaded
-  useEffect(() => {
-    if (scenes.length > 0 && !selectedScene) {
-      setSelectedScene(getDefaultSceneId(scenes));
-    }
-  }, [scenes, selectedScene]);
+  // Display either server auth error or local validation error
+  const displayError = authError || localError;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setLocalError('');
 
     const trimmedName = name.trim();
     if (trimmedName.length < 2) {
-      setError('Name must be at least 2 characters');
+      setLocalError('Name must be at least 2 characters');
       return;
     }
     if (trimmedName.length > 16) {
-      setError('Name must be 16 characters or less');
+      setLocalError('Name must be 16 characters or less');
       return;
     }
     if (!/^[a-zA-Z0-9_]+$/.test(trimmedName)) {
-      setError('Name can only contain letters, numbers, and underscores');
+      setLocalError('Name can only contain letters, numbers, and underscores');
+      return;
+    }
+    if (password.length < 4) {
+      setLocalError('Password must be at least 4 characters');
       return;
     }
 
-    setError('');
     playButtonSound();
-    onJoin(trimmedName, selectedScene);
+    onSubmit(trimmedName, password);
   };
+
+  const isLogin = mode === 'login';
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800">
-      <div className="bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md">
+      <div className="bg-gray-800 border-gray-900 border p-8 rounded-xl shadow-2xl w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">🎣 Fishing Game</h1>
-          <p className="text-gray-400">Enter your name to start fishing!</p>
+          <h1 className="text-2xl font-bold text-white mb-2">
+            Welcome to Gone Fishing!
+          </h1>
+          <p className="text-gray-400">
+            {isLogin ? 'Login to continue your adventure!' : 'Create an account to start fishing!'}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
-              Your Name
+              Username
             </label>
             <input
               type="text"
@@ -67,53 +73,49 @@ export function LoginForm({ onJoin, isConnecting }: LoginFormProps) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Enter your name..."
+              placeholder="Enter your username..."
               disabled={isConnecting}
               autoFocus
             />
-            {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Choose Starting Location
+            <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+              Password
             </label>
-            {scenesLoading ? (
-              <div className="text-gray-400 text-center py-4">Loading scenes...</div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                {scenes.map((scene) => (
-                  <button
-                    key={scene.id}
-                    type="button"
-                    onClick={withSound(() => setSelectedScene(scene.id))}
-                    disabled={isConnecting}
-                    className={`p-3 rounded-lg border-2 transition-colors ${
-                      selectedScene === scene.id
-                        ? 'border-blue-500 bg-blue-500/20 text-white'
-                        : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
-                    }`}
-                  >
-                    <span className="text-2xl block mb-1">{scene.emoji}</span>
-                    <span className="text-sm font-medium">{scene.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+            <input
+              type="password"
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Enter your password..."
+              disabled={isConnecting}
+            />
           </div>
+
+          {displayError && (
+            <p className="text-sm text-red-400 bg-red-400/10 p-3 rounded-lg">
+              {displayError}
+            </p>
+          )}
 
           <button
             type="submit"
-            disabled={isConnecting || !name.trim()}
+            disabled={isConnecting || name.trim().length < 2 || password.length < 4}
             className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors"
           >
-            {isConnecting ? 'Connecting...' : 'Start Fishing!'}
+            {isConnecting ? (isLogin ? 'Logging in...' : 'Creating account...') : isLogin ? 'Login' : 'Create Account'}
           </button>
         </form>
 
-        <div className="mt-6 text-center text-gray-500 text-sm">
-          <p>Your inventory is saved automatically.</p>
-          <p>Use the same name to continue where you left off!</p>
+        <div className="mt-6 text-center">
+          <Link
+            href={isLogin ? '/register' : '/login'}
+            className="text-blue-400 hover:text-blue-300 text-sm"
+          >
+            {isLogin ? "Don't have an account? Create one" : 'Already have an account? Login'}
+          </Link>
         </div>
       </div>
     </div>

@@ -11,6 +11,7 @@ import {
   InventoryItem,
   PlayerData,
   ShopState,
+  ChatMessage,
 } from '@/lib/types';
 
 export interface Toast {
@@ -48,6 +49,12 @@ interface GameState {
   shopOpen: boolean;
   shopData: ShopState | null;
 
+  // Chat state
+  chatMessages: ChatMessage[];
+
+  // Auth state
+  authError: string | null;
+
   // Toast state
   toasts: Toast[];
 
@@ -70,6 +77,9 @@ interface GameState {
   setPoleLevel: (level: number) => void;
   setShopOpen: (open: boolean) => void;
   setShopData: (data: ShopState | null) => void;
+  setChatMessages: (messages: ChatMessage[]) => void;
+  addChatMessage: (message: ChatMessage) => void;
+  setAuthError: (error: string | null) => void;
   addToast: (message: string, type?: 'error' | 'success' | 'info') => void;
   removeToast: (id: string) => void;
   reset: () => void;
@@ -92,6 +102,8 @@ const initialState = {
   showCatchModal: false,
   shopOpen: false,
   shopData: null,
+  chatMessages: [] as ChatMessage[],
+  authError: null as string | null,
   toasts: [] as Toast[],
 };
 
@@ -169,6 +181,15 @@ export const useGameStore = create<GameState>((set) => ({
   setShopOpen: (open) => set({ shopOpen: open }),
 
   setShopData: (data) => set({ shopData: data, shopOpen: data !== null }),
+
+  setChatMessages: (messages) => set({ chatMessages: messages }),
+
+  addChatMessage: (message) =>
+    set((state) => ({
+      chatMessages: [...state.chatMessages, message],
+    })),
+
+  setAuthError: (error) => set({ authError: error }),
 
   addToast: (message, type = 'error') =>
     set((state) => ({

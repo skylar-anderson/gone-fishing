@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { Rarity, ClientMessage } from '@/lib/types';
 import { useSound } from '@/lib/hooks/useSound';
+import { FishDisplay } from './FishDisplay';
 
 const RARITY_COLORS: Record<Rarity, string> = {
   common: 'text-gray-300',
@@ -88,7 +89,9 @@ export function CatchModal({ sendMessage }: CatchModalProps) {
         style={{ boxShadow: lastCatch.rarity !== 'common' ? `0 0 30px 5px` : undefined }}
       >
         <div className="text-center">
-          <div className="text-6xl mb-4">{lastCatch.emoji}</div>
+          <div className="mb-4 flex justify-center">
+            <FishDisplay fishId={lastCatch.id} emoji={lastCatch.emoji} size={96} />
+          </div>
           <h3 className={`text-2xl font-bold ${RARITY_COLORS[lastCatch.rarity]}`}>
             {lastCatch.name}
           </h3>

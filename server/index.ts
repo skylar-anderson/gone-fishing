@@ -16,7 +16,14 @@ const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
 const port = parseInt(process.env.PORT || '3000', 10);
 
-const app = next({ dev, hostname, port, dir: projectDir });
+const app = next({
+  dev,
+  hostname,
+  port,
+  dir: projectDir,
+  // Use webpack instead of turbopack for WASM support
+  turbopack: false,
+});
 const handle = app.getRequestHandler();
 
 // Track all active sockets for forced shutdown

@@ -87,3 +87,11 @@ fish:
     value: 200000
     emoji: "🐙"
     description: "A massive octopus-like creature with multiple arms and a huge mouth"
+
+  - id: sea_eater
+    name: Sea Eater
+    rarity: legendary
+    catchChance: 0.3
+    value: 500000
+    emoji: "🦈"
+    description: "No eyes, huge mouth, often dumb, but always deadly."

@@ -107,7 +107,8 @@ export function GameHeader({ sendMessage, onLogout }: GameHeaderProps) {
         {/* Left side */}
         <div className="flex items-center gap-1">
           {/* Player name */}
-          <span className="text-blue-400 font-medium px-2">{playerName}</span>
+          <span className="text-gray-400 text-sm">Logged in as:</span>
+          <span className="text-white text-smfont-medium">{playerName}</span>
 
           {/* Logout */}
           <button
@@ -122,8 +123,8 @@ export function GameHeader({ sendMessage, onLogout }: GameHeaderProps) {
             popover={<SceneSelector sendMessage={sendMessage} />}
             align="left"
           >
-            <span className="text-gray-400">📍</span>
-            <span className="text-gray-300">{scene?.name || 'Loading...'}</span>
+            <span className="text-gray-400 text-sm">📍</span>
+            <span className="text-gray-300 text-sm">{scene?.name || 'Loading...'}</span>
           </PopoverButton>
         </div>
 
@@ -134,7 +135,7 @@ export function GameHeader({ sendMessage, onLogout }: GameHeaderProps) {
             popover={<PlayerList />}
             align="right"
           >
-            <span className="text-gray-300 text-sm">{playerCount} online</span>
+            <span className="text-gray-300 text-sm">{playerCount} player{playerCount !== 1 ? 's' : ''} online</span>
           </PopoverButton>
 
           {/* Pole / Shop */}

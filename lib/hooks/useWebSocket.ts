@@ -1,17 +1,47 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { ClientMessage, ServerMessage, SceneId } from '@/lib/types';
 
-export function useWebSocket() {
-  const ws = useRef<WebSocket | null>(null);
-  const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 5;
+// Module-level singleton state (persists across component instances and navigations)
+let ws: WebSocket | null = null;
+let reconnectAttempts = 0;
+const maxReconnectAttempts = 5;
+let lastCredentials: { password: string; isRegistering: boolean } | null = null;
+let isConnecting = false;
+let messageHandler: ((event: MessageEvent) => void) | null = null;
 
+/**
+ * Create WebSocket URL based on current protocol
+ */
+function getWebSocketUrl(): string {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${window.location.host}/ws`;
+}
+
+/**
+ * Shared WebSocket connection setup
+ */
+function setupWebSocket(
+  onOpen: () => void,
+  onClose: (event: CloseEvent) => void,
+  currentMessageHandler: (event: MessageEvent) => void
+): WebSocket {
+  const socket = new WebSocket(getWebSocketUrl());
+
+  socket.onopen = onOpen;
+  socket.onmessage = currentMessageHandler;
+  socket.onclose = onClose;
+  socket.onerror = (error) => {
+    console.error('[WebSocket] Error:', error);
+  };
+
+  return socket;
+}
+
+export function useWebSocket() {
   const {
-    playerName,
-    currentScene,
     setConnecting,
     setConnected,
     setPlayerData,
@@ -26,6 +56,9 @@ export function useWebSocket() {
     setShopData,
     setShopOpen,
     setPoleLevel,
+    setChatMessages,
+    addChatMessage,
+    setAuthError,
     addToast,
   } = useGameStore();
 
@@ -35,6 +68,16 @@ export function useWebSocket() {
         const message: ServerMessage = JSON.parse(event.data);
 
         switch (message.type) {
+          case 'SESSION_CREATED':
+            // Set session cookie via HTTP API (WebSocket can't set httpOnly cookies)
+            // Token is validated server-side before cookie is set
+            fetch('/api/auth/session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token: message.payload.token }),
+            }).catch(err => console.error('[WebSocket] Failed to set session cookie:', err));
+            break;
+
           case 'WELCOME':
             setPlayerData(message.payload.player);
             setScene(message.payload.scene);
@@ -91,10 +134,23 @@ export function useWebSocket() {
             updateInventory(useGameStore.getState().inventory, message.payload.money);
             break;
 
+          case 'AUTH_ERROR':
+            console.error('[WebSocket] Auth error:', message.payload.message);
+            setAuthError(message.payload.message);
+            setConnecting(false);
+            break;
+
+          case 'CHAT_MESSAGE':
+            addChatMessage(message.payload);
+            break;
+
+          case 'CHAT_HISTORY':
+            setChatMessages(message.payload.messages);
+            break;
+
           case 'ERROR':
             console.error('[WebSocket] Server error:', message.payload.message);
             addToast(message.payload.message, 'error');
-            // Reset state based on error code
             if (message.payload.code === 'CANNOT_FISH') {
               setFishing(false);
             }
@@ -117,84 +173,144 @@ export function useWebSocket() {
       setShopData,
       setShopOpen,
       setPoleLevel,
+      setChatMessages,
+      addChatMessage,
+      setAuthError,
+      setConnecting,
       addToast,
     ]
   );
 
-  const connect = useCallback(
-    (name: string, scene: SceneId) => {
-      if (ws.current?.readyState === WebSocket.OPEN) {
-        // Already connected, just send join
-        sendMessage({ type: 'JOIN', payload: { name, scene } });
-        return;
-      }
-
-      setConnecting(true);
-
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
-
-      ws.current = new WebSocket(wsUrl);
-
-      ws.current.onopen = () => {
-        console.log('[WebSocket] Connected');
-        setConnected(true);
-        reconnectAttempts.current = 0;
-
-        // Send join message
-        sendMessage({ type: 'JOIN', payload: { name, scene } });
-      };
-
-      ws.current.onmessage = handleMessage;
-
-      ws.current.onclose = () => {
-        console.log('[WebSocket] Disconnected');
-        setConnected(false);
-
-        // Attempt reconnect
-        if (reconnectAttempts.current < maxReconnectAttempts && playerName && currentScene) {
-          reconnectAttempts.current++;
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
-          console.log(`[WebSocket] Reconnecting in ${delay}ms...`);
-          setTimeout(() => connect(playerName, currentScene), delay);
-        }
-      };
-
-      ws.current.onerror = (error) => {
-        console.error('[WebSocket] Error:', error);
-      };
-    },
-    [
-      playerName,
-      currentScene,
-      setConnecting,
-      setConnected,
-      handleMessage,
-    ]
-  );
-
-  const disconnect = useCallback(() => {
-    reconnectAttempts.current = maxReconnectAttempts; // Prevent reconnect
-    ws.current?.close();
-    ws.current = null;
-  }, []);
+  // Keep the message handler updated when callbacks change
+  useEffect(() => {
+    messageHandler = handleMessage;
+    if (ws) {
+      ws.onmessage = handleMessage;
+    }
+  }, [handleMessage]);
 
   const sendMessage = useCallback((message: ClientMessage) => {
-    if (ws.current?.readyState === WebSocket.OPEN) {
-      ws.current.send(JSON.stringify(message));
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(message));
+    } else {
+      console.warn('[WebSocket] Cannot send message, not connected', message.type);
     }
   }, []);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      disconnect();
-    };
-  }, [disconnect]);
+  const connect = useCallback(
+    (name: string, scene: SceneId, password: string, isRegistering: boolean) => {
+      if (isConnecting) return;
+
+      setAuthError(null);
+      lastCredentials = { password, isRegistering };
+
+      if (ws?.readyState === WebSocket.OPEN) {
+        sendMessage({ type: 'JOIN', payload: { name, scene, password, isRegistering } });
+        return;
+      }
+
+      isConnecting = true;
+      setConnecting(true);
+
+      ws = setupWebSocket(
+        // onOpen
+        () => {
+          console.log('[WebSocket] Connected');
+          isConnecting = false;
+          setConnected(true);
+          reconnectAttempts = 0;
+          sendMessage({ type: 'JOIN', payload: { name, scene, password, isRegistering } });
+        },
+        // onClose
+        (event) => {
+          console.log('[WebSocket] Disconnected', event.code, event.reason);
+          isConnecting = false;
+          setConnected(false);
+          setConnecting(false);
+
+          const { playerName, currentScene, authError } = useGameStore.getState();
+
+          if (!playerName && !authError) {
+            setAuthError('Connection failed. Please try again.');
+          }
+
+          // Attempt reconnect with stored credentials
+          if (reconnectAttempts < maxReconnectAttempts && playerName && currentScene && lastCredentials) {
+            reconnectAttempts++;
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+            console.log(`[WebSocket] Reconnecting in ${delay}ms...`);
+            const { password: pw, isRegistering: reg } = lastCredentials;
+            setTimeout(() => connect(playerName, currentScene, pw, reg), delay);
+          }
+        },
+        messageHandler || handleMessage
+      );
+    },
+    [setConnecting, setConnected, setAuthError, handleMessage, sendMessage]
+  );
+
+  const disconnect = useCallback(() => {
+    reconnectAttempts = maxReconnectAttempts;
+    ws?.close();
+    ws = null;
+  }, []);
+
+  /**
+   * Attempt to restore session from cookie
+   * Returns true if restoration was initiated, false otherwise
+   */
+  const restoreSession = useCallback(async (): Promise<boolean> => {
+    if (ws?.readyState === WebSocket.OPEN || isConnecting) {
+      return false;
+    }
+
+    try {
+      const response = await fetch('/api/auth/session');
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = await response.json();
+      if (!data.authenticated || !data.token) {
+        return false;
+      }
+
+      console.log('[WebSocket] Restoring session for', data.playerName);
+
+      isConnecting = true;
+      setConnecting(true);
+
+      ws = setupWebSocket(
+        // onOpen
+        () => {
+          console.log('[WebSocket] Connected (session restore)');
+          isConnecting = false;
+          setConnected(true);
+          reconnectAttempts = 0;
+          // Send token for server-side validation
+          sendMessage({ type: 'SESSION_RESTORE', payload: { token: data.token } });
+        },
+        // onClose
+        (event) => {
+          console.log('[WebSocket] Disconnected (session restore)', event.code, event.reason);
+          isConnecting = false;
+          setConnected(false);
+          setConnecting(false);
+        },
+        messageHandler || handleMessage
+      );
+
+      return true;
+    } catch (error) {
+      console.error('[WebSocket] Session restore failed:', error);
+      return false;
+    }
+  }, [setConnecting, setConnected, handleMessage, sendMessage]);
 
   return {
     connect,
     disconnect,
     sendMessage,
+    restoreSession,
   };
 }

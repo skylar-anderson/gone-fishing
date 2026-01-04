@@ -1,17 +1,32 @@
 import { NextResponse } from 'next/server';
-import { loadTextures, saveTextures, clearTextureCache } from '@/lib/textures/registry';
-import type { TextureExport } from '@/lib/types/textures';
+import { loadAsset, saveAsset } from '@/lib/db/assets';
+import { loadTextures as loadTexturesFromFile } from '@/lib/textures/registry';
+import type { TextureExport, TileTextures } from '@/lib/types/textures';
+
+const ASSET_TYPE = 'textures';
+const ASSET_KEY = 'default';
 
 export async function GET() {
-  const textures = loadTextures();
+  try {
+    const textures = await loadAsset<TileTextures>(
+      ASSET_TYPE,
+      ASSET_KEY,
+      loadTexturesFromFile
+    );
 
-  const response: TextureExport = {
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    tileTextures: textures,
-  };
-
-  return NextResponse.json(response);
+    return NextResponse.json({
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      tileTextures: textures,
+    } satisfies TextureExport);
+  } catch (err) {
+    console.error('Failed to load textures:', err);
+    return NextResponse.json({
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      tileTextures: loadTexturesFromFile(),
+    });
+  }
 }
 
 export async function POST(request: Request) {
@@ -22,11 +37,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid texture format' }, { status: 400 });
     }
 
-    saveTextures(data.tileTextures);
-    clearTextureCache();
+    await saveAsset(ASSET_TYPE, ASSET_KEY, data.tileTextures);
 
-    return NextResponse.json({ success: true, savedAt: new Date().toISOString() });
+    return NextResponse.json({
+      success: true,
+      savedAt: new Date().toISOString(),
+    });
   } catch (err) {
+    console.error('Failed to save textures:', err);
     return NextResponse.json({ error: 'Failed to save textures' }, { status: 500 });
   }
 }

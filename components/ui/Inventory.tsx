@@ -2,6 +2,7 @@
 
 import { useGameStore } from '@/store/gameStore';
 import { ClientMessage, Rarity } from '@/lib/types';
+import { FishDisplay } from './FishDisplay';
 
 interface InventoryProps {
   sendMessage: (message: ClientMessage) => void;
@@ -49,7 +50,7 @@ export function Inventory({ sendMessage }: InventoryProps) {
               className={`flex items-center justify-between p-2 rounded ${RARITY_BG[item.fish.rarity]}`}
             >
               <div className="flex items-center gap-2">
-                <span className="text-xl">{item.fish.emoji}</span>
+                <FishDisplay fishId={item.fish.id} emoji={item.fish.emoji} size={32} />
                 <div>
                   <div className={`font-medium ${RARITY_COLORS[item.fish.rarity]}`}>
                     {item.fish.name}

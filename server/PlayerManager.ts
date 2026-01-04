@@ -1,176 +1,264 @@
-import fs from 'fs';
-import path from 'path';
-import { PlayerData, SceneId, Position, InventoryItem } from '@/lib/types';
+import bcrypt from 'bcrypt';
+import { eq } from 'drizzle-orm';
+import { db, players, inventoryItems } from '@/lib/db';
+import type { PlayerData, SceneId, Position, InventoryItem, Fish } from '@/lib/types';
 
-const PERSISTENCE_FILE = path.join(process.cwd(), 'persistence', 'players.json');
-
-interface PlayersFile {
-  players: Record<string, PlayerData>;
-}
-
-function ensurePersistenceDir(): void {
-  const dir = path.dirname(PERSISTENCE_FILE);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-}
-
-function readPlayersFile(): PlayersFile {
-  try {
-    const data = fs.readFileSync(PERSISTENCE_FILE, 'utf8');
-    return JSON.parse(data);
-  } catch {
-    return { players: {} };
-  }
-}
-
-function writePlayersFile(data: PlayersFile): void {
-  ensurePersistenceDir();
-  fs.writeFileSync(PERSISTENCE_FILE, JSON.stringify(data, null, 2));
-}
+const SALT_ROUNDS = 10;
 
 export class PlayerManager {
-  private cache: Map<string, PlayerData> = new Map();
-  private dirty: Set<string> = new Set();
-  private saveInterval: ReturnType<typeof setInterval> | null = null;
-
-  constructor() {
-    // Auto-save every 30 seconds
-    this.saveInterval = setInterval(() => this.flush(), 30000);
+  // Check if a player exists by name
+  async playerExists(name: string): Promise<boolean> {
+    const key = name.toLowerCase();
+    const result = await db.select({ id: players.id })
+      .from(players)
+      .where(eq(players.nameLower, key))
+      .limit(1);
+    return result.length > 0;
   }
 
+  // Validate password for a player
+  async validatePassword(name: string, password: string): Promise<boolean> {
+    const key = name.toLowerCase();
+    const result = await db.select({ passwordHash: players.passwordHash })
+      .from(players)
+      .where(eq(players.nameLower, key))
+      .limit(1);
+
+    if (result.length === 0) return false;
+    return await bcrypt.compare(password, result[0].passwordHash);
+  }
+
+  // Get raw player row with ID (for session creation)
+  async getPlayerRow(name: string): Promise<typeof players.$inferSelect | null> {
+    const key = name.toLowerCase();
+    const result = await db.select()
+      .from(players)
+      .where(eq(players.nameLower, key))
+      .limit(1);
+    return result[0] || null;
+  }
+
+  // Get player by name with inventory
   async get(name: string): Promise<PlayerData | null> {
     const key = name.toLowerCase();
 
-    if (this.cache.has(key)) {
-      return this.cache.get(key)!;
-    }
+    const playerRows = await db.select()
+      .from(players)
+      .where(eq(players.nameLower, key))
+      .limit(1);
 
-    const file = readPlayersFile();
-    const player = file.players[key] || null;
-    if (player) {
-      // Migrate existing players without poleLevel
-      if (player.poleLevel === undefined) {
-        player.poleLevel = 1;
-      }
-      this.cache.set(key, player);
-    }
-    return player;
+    if (playerRows.length === 0) return null;
+
+    const player = playerRows[0];
+
+    // Fetch inventory items
+    const items = await db.select()
+      .from(inventoryItems)
+      .where(eq(inventoryItems.playerId, player.id));
+
+    return this.toPlayerData(player, items);
   }
 
-  async create(name: string, scene: SceneId = 'pond'): Promise<PlayerData> {
+  // Create a new player with password
+  async create(name: string, scene: SceneId = 'pond', password: string): Promise<PlayerData> {
     const key = name.toLowerCase();
+    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-    const newPlayer: PlayerData = {
-      name,
-      inventory: [],
-      money: 0,
-      poleLevel: 1,
-      lastScene: scene,
-      lastPosition: { x: 5, y: 8 },
-      createdAt: new Date().toISOString(),
-      lastLogin: new Date().toISOString(),
-    };
+    const [newPlayer] = await db.insert(players)
+      .values({
+        name,
+        nameLower: key,
+        passwordHash,
+        money: 0,
+        poleLevel: 1,
+        lastScene: scene,
+        lastPositionX: 5,
+        lastPositionY: 8,
+      })
+      .returning();
 
-    this.cache.set(key, newPlayer);
-    this.dirty.add(key);
-    this.flush(); // Save immediately for new players
-
-    return newPlayer;
+    return this.toPlayerData(newPlayer, []);
   }
 
+  // Update player data
   async update(name: string, updates: Partial<PlayerData>): Promise<PlayerData | null> {
     const key = name.toLowerCase();
-    const player = await this.get(name);
 
-    if (!player) {
-      return null;
-    }
-
-    const updated: PlayerData = {
-      ...player,
-      ...updates,
-      lastLogin: new Date().toISOString(),
+    const updateData: Record<string, unknown> = {
+      lastLogin: new Date(),
     };
 
-    this.cache.set(key, updated);
-    this.dirty.add(key);
+    if (updates.money !== undefined) updateData.money = updates.money;
+    if (updates.poleLevel !== undefined) updateData.poleLevel = updates.poleLevel;
+    if (updates.lastScene !== undefined) updateData.lastScene = updates.lastScene;
+    if (updates.lastPosition !== undefined) {
+      updateData.lastPositionX = updates.lastPosition.x;
+      updateData.lastPositionY = updates.lastPosition.y;
+    }
 
-    return updated;
+    const [updated] = await db.update(players)
+      .set(updateData)
+      .where(eq(players.nameLower, key))
+      .returning();
+
+    if (!updated) return null;
+
+    // Fetch inventory to return full PlayerData
+    const items = await db.select()
+      .from(inventoryItems)
+      .where(eq(inventoryItems.playerId, updated.id));
+
+    return this.toPlayerData(updated, items);
   }
 
+  // Add item to inventory
   async addToInventory(name: string, item: InventoryItem): Promise<PlayerData | null> {
-    const player = await this.get(name);
-    if (!player) return null;
+    const key = name.toLowerCase();
 
-    player.inventory.push(item);
-    this.dirty.add(name.toLowerCase());
-    return player;
+    // Get player ID
+    const playerRows = await db.select({ id: players.id })
+      .from(players)
+      .where(eq(players.nameLower, key))
+      .limit(1);
+
+    if (playerRows.length === 0) return null;
+
+    const playerId = playerRows[0].id;
+
+    // Insert inventory item
+    await db.insert(inventoryItems).values({
+      id: item.id,
+      playerId,
+      fishId: item.fishId,
+      fishData: item.fish,
+      caughtAt: new Date(item.caughtAt),
+      caughtIn: item.caughtIn,
+    });
+
+    return this.get(name);
   }
 
+  // Remove item from inventory
   async removeFromInventory(name: string, itemId: string): Promise<{ player: PlayerData; item: InventoryItem } | null> {
+    const key = name.toLowerCase();
+
+    // Get the item first
+    const itemRows = await db.select()
+      .from(inventoryItems)
+      .where(eq(inventoryItems.id, itemId))
+      .limit(1);
+
+    if (itemRows.length === 0) return null;
+
+    const itemRow = itemRows[0];
+
+    // Delete the item
+    await db.delete(inventoryItems).where(eq(inventoryItems.id, itemId));
+
+    // Get updated player
     const player = await this.get(name);
     if (!player) return null;
 
-    const index = player.inventory.findIndex((i) => i.id === itemId);
-    if (index === -1) return null;
-
-    const [item] = player.inventory.splice(index, 1);
-    this.dirty.add(name.toLowerCase());
+    const item: InventoryItem = {
+      id: itemRow.id,
+      fishId: itemRow.fishId,
+      fish: itemRow.fishData as Fish,
+      caughtAt: itemRow.caughtAt.toISOString(),
+      caughtIn: itemRow.caughtIn,
+    };
 
     return { player, item };
   }
 
+  // Add money to player
   async addMoney(name: string, amount: number): Promise<PlayerData | null> {
-    const player = await this.get(name);
-    if (!player) return null;
+    const key = name.toLowerCase();
 
-    player.money += amount;
-    this.dirty.add(name.toLowerCase());
-    return player;
+    // Get current money
+    const playerRows = await db.select({ id: players.id, money: players.money })
+      .from(players)
+      .where(eq(players.nameLower, key))
+      .limit(1);
+
+    if (playerRows.length === 0) return null;
+
+    const newMoney = playerRows[0].money + amount;
+
+    await db.update(players)
+      .set({ money: newMoney })
+      .where(eq(players.nameLower, key));
+
+    return this.get(name);
   }
 
+  // Upgrade pole and deduct money
   async upgradePole(name: string, price: number): Promise<PlayerData | null> {
-    const player = await this.get(name);
-    if (!player) return null;
+    const key = name.toLowerCase();
+
+    // Get current player data
+    const playerRows = await db.select({ id: players.id, poleLevel: players.poleLevel, money: players.money })
+      .from(players)
+      .where(eq(players.nameLower, key))
+      .limit(1);
+
+    if (playerRows.length === 0) return null;
+
+    const player = playerRows[0];
     if (player.poleLevel >= 6) return null;
     if (player.money < price) return null;
 
-    player.poleLevel += 1;
-    player.money -= price;
-    this.dirty.add(name.toLowerCase());
-    return player;
+    await db.update(players)
+      .set({
+        poleLevel: player.poleLevel + 1,
+        money: player.money - price,
+      })
+      .where(eq(players.nameLower, key));
+
+    return this.get(name);
   }
 
+  // Update player position and scene
   async updatePosition(name: string, position: Position, scene: SceneId): Promise<void> {
-    const player = await this.get(name);
-    if (!player) return;
+    const key = name.toLowerCase();
 
-    player.lastPosition = position;
-    player.lastScene = scene;
-    this.dirty.add(name.toLowerCase());
+    await db.update(players)
+      .set({
+        lastPositionX: position.x,
+        lastPositionY: position.y,
+        lastScene: scene,
+      })
+      .where(eq(players.nameLower, key));
   }
 
+  // Convert database row to PlayerData
+  private toPlayerData(
+    player: typeof players.$inferSelect,
+    items: (typeof inventoryItems.$inferSelect)[]
+  ): PlayerData {
+    return {
+      name: player.name,
+      inventory: items.map((item) => ({
+        id: item.id,
+        fishId: item.fishId,
+        fish: item.fishData as Fish,
+        caughtAt: item.caughtAt.toISOString(),
+        caughtIn: item.caughtIn,
+      })),
+      money: player.money,
+      poleLevel: player.poleLevel,
+      lastScene: player.lastScene,
+      lastPosition: { x: player.lastPositionX, y: player.lastPositionY },
+      createdAt: player.createdAt.toISOString(),
+      lastLogin: player.lastLogin.toISOString(),
+    };
+  }
+
+  // No-ops for backward compatibility
   flush(): void {
-    if (this.dirty.size === 0) return;
-
-    const file = readPlayersFile();
-
-    for (const key of this.dirty) {
-      const player = this.cache.get(key);
-      if (player) {
-        file.players[key] = player;
-      }
-    }
-
-    writePlayersFile(file);
-    this.dirty.clear();
+    // Database writes are immediate, no flush needed
   }
 
   shutdown(): void {
-    if (this.saveInterval) {
-      clearInterval(this.saveInterval);
-    }
-    this.flush();
+    // No cleanup needed for serverless database
   }
 }

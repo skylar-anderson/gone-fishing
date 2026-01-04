@@ -6,7 +6,7 @@ import { PixelCanvas } from './PixelCanvas';
 import { ColorPicker } from './ColorPicker';
 import { TileTypeSelector } from './TileTypeSelector';
 import { TexturePreview } from './TexturePreview';
-import type { TextureExport } from '@/lib/types/textures';
+import type { TextureExport, TileTextures, PixelTexture } from '@/lib/types/textures';
 
 function SaveStatus({ isDirty, lastSavedAt }: { isDirty: boolean; lastSavedAt: number | null }) {
   const formatTime = (timestamp: number) => {
@@ -221,6 +221,40 @@ export function TextureEditor() {
     }
   }, [loadTextures]);
 
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+
+  const handleSaveToServer = useCallback(async () => {
+    try {
+      setSaving(true);
+      setSaveStatus(null);
+
+      const exportData: TextureExport = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        tileTextures: textures,
+      };
+
+      const response = await fetch('/api/textures', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(exportData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save');
+      }
+
+      setSaveStatus('Saved!');
+      setTimeout(() => setSaveStatus(null), 2000);
+    } catch (err) {
+      setSaveStatus('Failed to save');
+      console.error('Save failed:', err);
+    } finally {
+      setSaving(false);
+    }
+  }, [textures]);
+
   return (
     <div>
       {/* Toolbar */}
@@ -332,7 +366,29 @@ export function TextureEditor() {
         </div>
 
         <div className="bg-gray-800 rounded-lg p-4 space-y-2">
-          <h3 className="text-sm font-semibold text-gray-400 mb-2">Export / Import</h3>
+          <h3 className="text-sm font-semibold text-gray-400 mb-2">Persistence</h3>
+          <button
+            onClick={handleSaveToServer}
+            disabled={saving}
+            className={`w-full px-4 py-2 rounded text-sm font-medium transition-colors ${
+              saving
+                ? 'bg-gray-600 text-gray-400 cursor-wait'
+                : saveStatus === 'Saved!'
+                ? 'bg-green-600 text-white'
+                : saveStatus === 'Failed to save'
+                ? 'bg-red-600 text-white'
+                : 'bg-green-600 hover:bg-green-700 text-white'
+            }`}
+          >
+            {saving ? 'Saving...' : saveStatus || 'Save to Server'}
+          </button>
+          <p className="text-xs text-gray-500 text-center">
+            Makes changes permanent for all players
+          </p>
+        </div>
+
+        <div className="bg-gray-800 rounded-lg p-4 space-y-2">
+          <h3 className="text-sm font-semibold text-gray-400 mb-2">JSON Export</h3>
           <button
             onClick={handleExport}
             className={`w-full px-4 py-2 rounded text-sm font-medium transition-colors ${
@@ -350,8 +406,118 @@ export function TextureEditor() {
             Paste JSON
           </button>
         </div>
+
+        <PngExportSection textures={textures} currentTexture={currentTexture} />
       </div>
     </div>
   </div>
+  );
+}
+
+// PNG Export Section Component
+function PngExportSection({
+  textures,
+  currentTexture
+}: {
+  textures: TileTextures;
+  currentTexture: PixelTexture;
+}) {
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
+
+  const handleExportCurrentPng = useCallback(async () => {
+    try {
+      setExporting(true);
+      setExportStatus(null);
+
+      const { generateTexturePng } = await import('@/lib/wasm/pngGenerator');
+      const blob = await generateTexturePng(currentTexture.pixels);
+
+      // Download the PNG
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${currentTexture.id}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setExportStatus('Downloaded!');
+      setTimeout(() => setExportStatus(null), 2000);
+    } catch (err) {
+      setExportStatus('Failed to export');
+      console.error('PNG export failed:', err);
+    } finally {
+      setExporting(false);
+    }
+  }, [currentTexture]);
+
+  const handleExportAllPngs = useCallback(async () => {
+    try {
+      setExporting(true);
+      setExportStatus('Exporting...');
+
+      const { generateTexturePng } = await import('@/lib/wasm/pngGenerator');
+
+      // Export each texture
+      for (const [tileType, texture] of Object.entries(textures)) {
+        const blob = await generateTexturePng(texture.pixels);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `tile_${tileType}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        // Small delay between downloads
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      setExportStatus('All exported!');
+      setTimeout(() => setExportStatus(null), 2000);
+    } catch (err) {
+      setExportStatus('Export failed');
+      console.error('PNG export failed:', err);
+    } finally {
+      setExporting(false);
+    }
+  }, [textures]);
+
+  return (
+    <div className="bg-gray-800 rounded-lg p-4 space-y-2">
+      <h3 className="text-sm font-semibold text-gray-400 mb-2">PNG Export</h3>
+      <button
+        onClick={handleExportCurrentPng}
+        disabled={exporting}
+        className={`w-full px-4 py-2 rounded text-sm font-medium transition-colors ${
+          exporting
+            ? 'bg-gray-600 text-gray-400 cursor-wait'
+            : 'bg-purple-600 hover:bg-purple-700 text-white'
+        }`}
+      >
+        {exporting ? 'Exporting...' : 'Download Current PNG'}
+      </button>
+      <button
+        onClick={handleExportAllPngs}
+        disabled={exporting}
+        className={`w-full px-4 py-2 rounded text-sm font-medium transition-colors ${
+          exporting
+            ? 'bg-gray-600 text-gray-400 cursor-wait'
+            : 'bg-purple-600 hover:bg-purple-700 text-white'
+        }`}
+      >
+        {exporting ? 'Exporting...' : 'Download All PNGs'}
+      </button>
+      {exportStatus && (
+        <p className={`text-xs text-center ${
+          exportStatus.includes('Failed') ? 'text-red-400' : 'text-green-400'
+        }`}>
+          {exportStatus}
+        </p>
+      )}
+    </div>
   );
 }

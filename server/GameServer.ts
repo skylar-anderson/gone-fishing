@@ -13,6 +13,8 @@ import {
 import { SceneManager } from './SceneManager';
 import { PlayerManager } from './PlayerManager';
 import { FishingSystem } from './FishingSystem';
+import { ChatManager } from './ChatManager';
+import { SessionManager } from './SessionManager';
 import { canMoveTo, isAdjacentToTileType } from '@/lib/utils/collision';
 import { getPole, getNextPole } from '@/data/poles';
 
@@ -29,12 +31,16 @@ export class GameServer {
   private sceneManager: SceneManager;
   private playerManager: PlayerManager;
   private fishingSystem: FishingSystem;
+  private chatManager: ChatManager;
+  private sessionManager: SessionManager;
 
   constructor(wss: WebSocketServer) {
     this.wss = wss;
     this.sceneManager = new SceneManager();
     this.playerManager = new PlayerManager();
     this.fishingSystem = new FishingSystem();
+    this.chatManager = new ChatManager();
+    this.sessionManager = new SessionManager();
   }
 
   start(): void {
@@ -77,6 +83,9 @@ export class GameServer {
       case 'JOIN':
         await this.handleJoin(connectionId, message.payload);
         break;
+      case 'SESSION_RESTORE':
+        await this.handleSessionRestore(connectionId, message.payload);
+        break;
       case 'MOVE':
         this.handleMove(connectionId, message.payload);
         break;
@@ -98,20 +107,49 @@ export class GameServer {
       case 'CLOSE_SHOP':
         this.handleCloseShop(connectionId);
         break;
+      case 'SEND_CHAT':
+        await this.handleSendChat(connectionId, message.payload);
+        break;
     }
   }
 
   private async handleJoin(
     connectionId: string,
-    payload: { name: string; scene: SceneId }
+    payload: { name: string; scene: SceneId; password: string; isRegistering?: boolean }
   ): Promise<void> {
     const connection = this.connections.get(connectionId);
     if (!connection) return;
 
-    const { name, scene } = payload;
+    const { name, scene, password, isRegistering } = payload;
+
+    // Validate name (must match client-side validation in LoginForm.tsx)
+    const trimmedName = name?.trim() || '';
+    if (trimmedName.length < 2 || trimmedName.length > 16) {
+      this.send(connection.ws, {
+        type: 'AUTH_ERROR',
+        payload: { message: 'Name must be 2-16 characters', code: 'INVALID_CREDENTIALS' },
+      });
+      return;
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(trimmedName)) {
+      this.send(connection.ws, {
+        type: 'AUTH_ERROR',
+        payload: { message: 'Name can only contain letters, numbers, and underscores', code: 'INVALID_CREDENTIALS' },
+      });
+      return;
+    }
+
+    // Validate password
+    if (!password || password.length < 4) {
+      this.send(connection.ws, {
+        type: 'AUTH_ERROR',
+        payload: { message: 'Password must be at least 4 characters', code: 'INVALID_CREDENTIALS' },
+      });
+      return;
+    }
 
     // Check if player already connected
-    const existingConnectionId = this.playerConnections.get(name.toLowerCase());
+    const existingConnectionId = this.playerConnections.get(trimmedName.toLowerCase());
     if (existingConnectionId && existingConnectionId !== connectionId) {
       this.send(connection.ws, {
         type: 'ERROR',
@@ -120,38 +158,87 @@ export class GameServer {
       return;
     }
 
-    // Load or create player
-    let player = await this.playerManager.get(name);
-    if (!player) {
-      player = await this.playerManager.create(name, scene);
+    let player;
+    let isNewPlayer = false;
+    const playerExists = await this.playerManager.playerExists(trimmedName);
+
+    if (isRegistering) {
+      // Registration flow
+      if (playerExists) {
+        this.send(connection.ws, {
+          type: 'AUTH_ERROR',
+          payload: { message: 'Username already taken', code: 'NAME_TAKEN' },
+        });
+        return;
+      }
+      player = await this.playerManager.create(trimmedName, scene, password);
+      isNewPlayer = true;
     } else {
-      // Update last login
-      player = (await this.playerManager.update(name, { lastLogin: new Date().toISOString() }))!;
+      // Login flow
+      if (!playerExists) {
+        this.send(connection.ws, {
+          type: 'AUTH_ERROR',
+          payload: { message: 'Player not found. Create an account first.', code: 'PLAYER_NOT_FOUND' },
+        });
+        return;
+      }
+
+      const validPassword = await this.playerManager.validatePassword(trimmedName, password);
+      if (!validPassword) {
+        this.send(connection.ws, {
+          type: 'AUTH_ERROR',
+          payload: { message: 'Invalid password', code: 'INVALID_CREDENTIALS' },
+        });
+        return;
+      }
+
+      player = await this.playerManager.get(trimmedName);
+      if (player) {
+        player = (await this.playerManager.update(trimmedName, { lastLogin: new Date().toISOString() }))!;
+      }
+    }
+
+    if (!player) {
+      this.send(connection.ws, {
+        type: 'ERROR',
+        payload: { message: 'Failed to load player', code: 'LOAD_FAILED' },
+      });
+      return;
     }
 
     // Update connection
-    connection.playerName = name;
+    connection.playerName = trimmedName;
     connection.currentScene = scene;
-    this.playerConnections.set(name.toLowerCase(), connectionId);
+    this.playerConnections.set(trimmedName.toLowerCase(), connectionId);
 
     // Add to scene at last position or spawn point
     const sceneData = this.sceneManager.getScene(scene);
     const position = player.lastScene === scene ? player.lastPosition : sceneData?.spawnPoint || { x: 5, y: 5 };
-    this.sceneManager.addPlayer(scene, name, position);
+    this.sceneManager.addPlayer(scene, trimmedName, position);
 
-    console.log(`[GameServer] Player ${name} joined scene ${scene}`);
+    console.log(`[GameServer] Player ${trimmedName} joined scene ${scene}${isNewPlayer ? ' (new player)' : ''}`);
+
+    // Create session and send token (client will set cookie via HTTP API)
+    const playerRow = await this.playerManager.getPlayerRow(trimmedName);
+    if (playerRow) {
+      const sessionToken = await this.sessionManager.createSession(playerRow.id);
+      this.send(connection.ws, {
+        type: 'SESSION_CREATED',
+        payload: { token: sessionToken },
+      });
+    }
 
     // Send welcome message
     if (sceneData) {
       this.send(connection.ws, {
         type: 'WELCOME',
-        payload: { player, scene: sceneData },
+        payload: { player, scene: sceneData, isNewPlayer },
       });
     }
 
     // Broadcast to other players in scene
     const otherPlayer: OtherPlayer = {
-      name,
+      name: trimmedName,
       position,
       currentScene: scene,
       direction: 'down',
@@ -160,15 +247,131 @@ export class GameServer {
     this.broadcastToScene(
       scene,
       { type: 'PLAYER_JOINED', payload: otherPlayer },
-      name
+      trimmedName
     );
 
     // Send current players in scene to new player
-    const playersInScene = this.sceneManager.getPlayersInScene(scene).filter((p) => p.name !== name);
+    const playersInScene = this.sceneManager.getPlayersInScene(scene).filter((p) => p.name !== trimmedName);
     if (sceneData) {
       this.send(connection.ws, {
         type: 'SCENE_STATE',
         payload: { players: playersInScene, scene: sceneData },
+      });
+
+      // Send chat history for this scene
+      const chatHistory = await this.chatManager.getRecentMessages(scene);
+      this.send(connection.ws, {
+        type: 'CHAT_HISTORY',
+        payload: { messages: chatHistory },
+      });
+    }
+  }
+
+  /**
+   * Handle session restoration (reconnection via session token)
+   * Validates the token server-side for security
+   */
+  private async handleSessionRestore(
+    connectionId: string,
+    payload: { token: string }
+  ): Promise<void> {
+    const connection = this.connections.get(connectionId);
+    if (!connection) return;
+
+    const { token } = payload;
+
+    // Validate session token server-side
+    const session = await this.sessionManager.validateSession(token);
+    if (!session) {
+      this.send(connection.ws, {
+        type: 'AUTH_ERROR',
+        payload: { message: 'Session expired', code: 'INVALID_CREDENTIALS' },
+      });
+      return;
+    }
+
+    const playerName = session.playerName;
+
+    // Get full player data
+    const player = await this.playerManager.get(playerName);
+    if (!player) {
+      this.send(connection.ws, {
+        type: 'AUTH_ERROR',
+        payload: { message: 'Player not found', code: 'INVALID_CREDENTIALS' },
+      });
+      return;
+    }
+
+    // Use player's last scene
+    const scene = player.lastScene;
+
+    // Check if player already connected elsewhere
+    const existingConnectionId = this.playerConnections.get(playerName.toLowerCase());
+    if (existingConnectionId && existingConnectionId !== connectionId) {
+      // Disconnect old connection
+      const oldConnection = this.connections.get(existingConnectionId);
+      if (oldConnection) {
+        this.send(oldConnection.ws, {
+          type: 'ERROR',
+          payload: { message: 'Connected from another location', code: 'DUPLICATE_SESSION' },
+        });
+        oldConnection.ws.close();
+      }
+    }
+
+    // Update connection
+    connection.playerName = playerName;
+    connection.currentScene = scene;
+    this.playerConnections.set(playerName.toLowerCase(), connectionId);
+
+    // Add to scene at last position or spawn point
+    const sceneData = this.sceneManager.getScene(scene);
+    const position = player.lastScene === scene ? player.lastPosition : sceneData?.spawnPoint || { x: 5, y: 5 };
+    this.sceneManager.addPlayer(scene, playerName, position);
+
+    console.log(`[GameServer] Player ${playerName} restored session in scene ${scene}`);
+
+    // Update last login
+    await this.playerManager.update(playerName, { lastLogin: new Date().toISOString() });
+
+    // Get updated player data
+    const updatedPlayer = await this.playerManager.get(playerName);
+
+    // Send welcome message
+    if (sceneData && updatedPlayer) {
+      this.send(connection.ws, {
+        type: 'WELCOME',
+        payload: { player: updatedPlayer, scene: sceneData, isNewPlayer: false },
+      });
+    }
+
+    // Broadcast to other players in scene
+    const otherPlayer: OtherPlayer = {
+      name: playerName,
+      position,
+      currentScene: scene,
+      direction: 'down',
+      isFishing: false,
+    };
+    this.broadcastToScene(
+      scene,
+      { type: 'PLAYER_JOINED', payload: otherPlayer },
+      playerName
+    );
+
+    // Send current players in scene
+    const playersInScene = this.sceneManager.getPlayersInScene(scene).filter((p) => p.name !== playerName);
+    if (sceneData) {
+      this.send(connection.ws, {
+        type: 'SCENE_STATE',
+        payload: { players: playersInScene, scene: sceneData },
+      });
+
+      // Send chat history for this scene
+      const chatHistory = await this.chatManager.getRecentMessages(scene);
+      this.send(connection.ws, {
+        type: 'CHAT_HISTORY',
+        payload: { messages: chatHistory },
       });
     }
   }
@@ -257,6 +460,13 @@ export class GameServer {
     this.send(connection.ws, {
       type: 'SCENE_STATE',
       payload: { players: playersInScene, scene: sceneData },
+    });
+
+    // Send chat history for new scene
+    const chatHistory = await this.chatManager.getRecentMessages(newScene);
+    this.send(connection.ws, {
+      type: 'CHAT_HISTORY',
+      payload: { messages: chatHistory },
     });
 
     // Broadcast arrival to new scene
@@ -530,6 +740,31 @@ export class GameServer {
     this.send(connection.ws, {
       type: 'SHOP_CLOSED',
       payload: {},
+    });
+  }
+
+  private async handleSendChat(
+    connectionId: string,
+    payload: { message: string }
+  ): Promise<void> {
+    const connection = this.connections.get(connectionId);
+    if (!connection?.playerName || !connection.currentScene) return;
+
+    // Sanitize message
+    const sanitizedMessage = payload.message.trim().slice(0, 200);
+    if (!sanitizedMessage) return;
+
+    // Store message in database
+    const chatMessage = await this.chatManager.addMessage(
+      connection.currentScene,
+      connection.playerName,
+      sanitizedMessage
+    );
+
+    // Broadcast to all players in scene (including sender)
+    this.broadcastToScene(connection.currentScene, {
+      type: 'CHAT_MESSAGE',
+      payload: chatMessage,
     });
   }
 

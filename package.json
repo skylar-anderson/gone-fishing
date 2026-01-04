@@ -3,13 +3,21 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "tsx server/index.ts",
+    "dev": "dotenv -e .env.local -- tsx server/index.ts",
     "dev:next": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
+    "build:wasm": "cd wasm/png-generator && wasm-pack build --target bundler --out-dir ../../lib/wasm/pkg",
     "start": "NODE_ENV=production tsx server/index.ts",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:generate": "dotenv -e .env.local -- drizzle-kit generate",
+    "db:push": "dotenv -e .env.local -- drizzle-kit push",
+    "db:studio": "dotenv -e .env.local -- drizzle-kit studio",
+    "db:migrate-json": "dotenv -e .env.local -- tsx scripts/migrate-from-json.ts"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
+    "bcrypt": "^6.0.0",
+    "drizzle-orm": "^0.45.1",
     "next": "16.1.1",
     "react": "19.2.3",
     "react-colorful": "^5.6.1",
@@ -20,12 +28,15 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^11.0.0",
     "@types/ws": "^8.18.1",
     "autoprefixer": "^10.4.23",
+    "dotenv-cli": "^11.0.0",
+    "drizzle-kit": "^0.31.8",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "postcss": "^8.5.6",
