@@ -1,0 +1,17 @@
+{
+  "name": "fishing-png-generator",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "fishing_png_generator_bg.wasm",
+    "fishing_png_generator.js",
+    "fishing_png_generator_bg.js",
+    "fishing_png_generator.d.ts"
+  ],
+  "main": "fishing_png_generator.js",
+  "types": "fishing_png_generator.d.ts",
+  "sideEffects": [
+    "./fishing_png_generator.js",
+    "./snippets/*"
+  ]
+}
